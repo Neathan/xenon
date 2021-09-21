@@ -1,0 +1,14 @@
+# Visual Studio files and folders
+**/**.sln
+**/**.vcxproj*
+**/.vs
+**/**.csproj*
+
+**/CMakeSettings.json
+
+# Imgui
+**/imgui.ini
+
+# Build
+out/
+
