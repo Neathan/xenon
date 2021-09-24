@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <vector>
 
 #include <glad/gl.h>
 
@@ -27,14 +28,15 @@ namespace xe {
 
 	struct Framebuffer {
 		GLuint width, height;
+		int samples;
 		GLuint frambufferID = 0;
 		FramebufferStatus status = FramebufferStatus::UNINITIALIZED;
 		std::map<GLenum, FramebufferAttachment> attachments;
+		std::vector<GLenum> colorBuffers;
 	};
 
-	Framebuffer* createFramebuffer(unsigned int width, unsigned int height);
+	Framebuffer* createFramebuffer(unsigned int width, unsigned int height, int samples = 1);
 	void destroyFramebuffer(Framebuffer* framebuffer);
-
 
 	bool buildFramebuffer(Framebuffer* framebuffer);
 
@@ -42,8 +44,8 @@ namespace xe {
 	void unbindFramebuffer();
 
 	void clearFramebuffer(const Framebuffer& framebuffer, const Shader& shader);
-
 	void updateFramebufferSize(Framebuffer* framebuffer, unsigned int width, unsigned int height);
+	void blitFramebuffers(Framebuffer* source, Framebuffer* target);
 
 	typedef enum class DefaultFramebufferAttachmentType {
 		COLOR,

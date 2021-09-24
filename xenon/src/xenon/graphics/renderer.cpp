@@ -4,6 +4,9 @@
 
 #include "xenon/core/log.h"
 #include "xenon/graphics/primitives.h"
+#include "xenon/graphics/brdf.h"
+
+#include "xenon/core/input.h"
 
 namespace xe {
 
@@ -12,7 +15,9 @@ namespace xe {
 	//----------------------------------------
 
 	Renderer* createRenderer(Shader* shader, Shader* envShader) {
-		return new Renderer{ shader, envShader };
+		std::shared_ptr<Texture> brdfLUT = generateBRDFLUT(512, 512);
+
+		return new Renderer{ shader, envShader, brdfLUT };
 	}
 
 	void destroyRenderer(Renderer* renderer) {
@@ -60,7 +65,7 @@ namespace xe {
 			loadMat4(*renderer.shader, "transform", transform * globalPositions[i]);
 
 			// pii = primitiveIndicesIndex
-			for (size_t pii = primitiveCounter; pii < node.primitiveCount; ++pii) {
+			for (size_t pii = primitiveCounter; pii < primitiveCounter + node.primitiveCount; ++pii) {
 				const Primitive& primitive = model.primitives[model.primitiveIndices[pii]];
 
 				loadUsedAttributes(*renderer.shader, model.primitiveAttributes[model.primitiveIndices[pii]]);
@@ -104,8 +109,7 @@ namespace xe {
 		loadMat4(*renderer->envShader, "projection", camera.projection);
 		loadMat4(*renderer->envShader, "view", camera.inverseTransform);
 
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_CUBE_MAP, renderIBL ? environment.iblCubemap->textureID : environment.environmentCubemap->textureID);
+		glBindTextureUnit(0, renderIBL ? environment.irradianceMap->textureID : environment.environmentCubemap->textureID);
 
 		glDisable(GL_CULL_FACE);
 		const Primitive& primitive = renderer->envCubeModel->primitives[0];
@@ -114,7 +118,7 @@ namespace xe {
 		glBindVertexArray(0);
 		glEnable(GL_CULL_FACE);
 
-		glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+		glBindTextureUnit(0, 0);
 		unbindShader();
 	}
 
@@ -143,14 +147,15 @@ namespace xe {
 	void renderFramebufferToScreen(const FramebufferRenderer& renderer, const Framebuffer& framebuffer) {
 		bindShader(*renderer.shader);
 
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, framebuffer.attachments.at(GL_COLOR_ATTACHMENT0).texture->textureID);
+		glBindTextureUnit(0, framebuffer.attachments.at(GL_COLOR_ATTACHMENT0).texture->textureID);
 
 		const Primitive& primitive = renderer.planeModel->primitives[0];
 
 		glBindVertexArray(primitive.vao);
 		glDrawArrays(primitive.mode, 0, primitive.count);
 		glBindVertexArray(0);
+
+		glBindTextureUnit(0, 0);
 
 		unbindShader();
 	}

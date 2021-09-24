@@ -30,12 +30,12 @@ namespace xe {
 			glNamedBufferStorage(planeVBO, sizeof(planeData), planeData.data(), 0);
 
 			GLuint vaa = (GLuint)PrimitiveAttributeType::POSITION;
-			glEnableVertexArrayAttrib(planeVAO, 0);
+			glEnableVertexArrayAttrib(planeVAO, vaa);
 			glVertexArrayAttribFormat(planeVAO, vaa, 3, GL_FLOAT, false, 0);
 			glVertexArrayAttribBinding(planeVAO, vaa, 0);
 
 			vaa = (GLuint)PrimitiveAttributeType::TEXCOORD_0;
-			glEnableVertexArrayAttrib(planeVAO, 3);
+			glEnableVertexArrayAttrib(planeVAO, vaa);
 			glVertexArrayAttribFormat(planeVAO, vaa, 2, GL_FLOAT, false, sizeof(float) * 3);
 			glVertexArrayAttribBinding(planeVAO, vaa, 0);
 
@@ -61,7 +61,7 @@ namespace xe {
 		// Create model
 		Model* model = new Model();
 
-		Primitive primitive = Primitive(planeVAO, GL_TRIANGLES, 6, 0);
+		Primitive primitive = Primitive(planeVAO, GL_TRIANGLES, 6, 0, BoundingBox{ transform * glm::vec4(-1, -1, 0, 1), transform * glm::vec4(1, 1, 0, 1)});
 		PrimitiveAttributeArray attributeArray;
 		attributeArray[(uint8_t)PrimitiveAttributeType::POSITION] = PrimitiveAttribute{ planeVBO, 6 };
 
@@ -160,7 +160,7 @@ namespace xe {
 		// Create model
 		Model* model = new Model();
 
-		Primitive primitive = Primitive(cubeVAO, GL_TRIANGLES, 36, 0);
+		Primitive primitive = Primitive(cubeVAO, GL_TRIANGLES, 36, 0, BoundingBox{ transform * glm::vec4(-1, -1, -1, 1), transform * glm::vec4(1, 1, 1, 1) });
 		PrimitiveAttributeArray attributeArray;
 		attributeArray[(uint8_t)PrimitiveAttributeType::POSITION] = PrimitiveAttribute{ cubeVBO, 36 };
 

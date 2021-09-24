@@ -27,12 +27,15 @@ namespace xe {
 		std::vector<Primitive> primitives;
 		std::vector<Material> materials;
 		std::vector<PrimitiveAttributeArray> primitiveAttributes;
+
+		BoundingBox bounds;
 	};
 
 	void destroyModel(Model* model);
 
 	struct ModelComponent {
 		Model* model = nullptr;
+		bool wireframe = false;
 	};
 
 }

@@ -30,7 +30,7 @@ uniform float metallicFactor;
 uniform float roughnessFactor;
 uniform vec3 emissiveFactor;  // TODO: implement
 uniform int alphaMode;  // TODO: implement
-uniform float alphaCutoff;  // TODO: implement
+uniform float alphaCutoff;
 uniform bool doubleSided;  // TODO: implement
 
 layout(binding = 0) uniform sampler2D albedoMap;
@@ -59,6 +59,8 @@ uniform bool usingAttribWeights0;  // TODO: implement
 //---------------------------------------------------------------
 
 layout(binding = 5) uniform samplerCube irradianceMap;
+layout(binding = 6) uniform samplerCube radianceMap;
+layout(binding = 7) uniform sampler2D brdfLUT;
 
 
 //---------------------------------------------------------------
@@ -135,6 +137,15 @@ vec3 fresnelSchlick(float HdotV, vec3 baseReflectivity) {
 
 
 //---------------------------------------------------------------
+// [SECTION] Fresnel-Schlick Roughness
+//---------------------------------------------------------------
+
+vec3 fresnelSchlickRoughness(float HdotV, vec3 baseReflectivity, float roughness) {
+	return baseReflectivity + (max(vec3(1.0 - roughness), baseReflectivity) - baseReflectivity) * pow(1.0 - HdotV, 5.0);
+}
+
+
+//---------------------------------------------------------------
 // [SECTION] Fresnel-Schlick
 //---------------------------------------------------------------
 
@@ -171,12 +182,17 @@ void main() {
 
 	vec3 N = normalize(getNormal());
 	vec3 V = normalize(camera.position - position.xyz);
+	vec3 R = reflect(-V, N);
 	float NdotV = max(dot(N, V), EPSILON);
 
 	// Extract material data
 	vec4 albedo = baseColorFactor;
 	if(usingAlbedoMap) {
 		albedo = albedo * texture(albedoMap, textureCoord);
+	}
+
+	if(albedo.a < alphaCutoff) {
+		discard;
 	}
 
 	float metallic = metallicFactor;
@@ -241,16 +257,28 @@ void main() {
 	}
 
 	// IBL ambient lightning
-	vec3 F = fresnelSchlick(NdotV, baseReflectivity);
+	vec3 F = fresnelSchlickRoughness(NdotV, baseReflectivity, roughness);
 	vec3 kD = (1.0 - F) * (1.0 - metallic);
-	vec3 ambient = texture(irradianceMap, N).rgb * albedo.rgb * kD * ao;
+
+	vec3 irradiance = texture(irradianceMap, N).rgb;
+	vec3 diffuse = irradiance * albedo.rgb;
+
+
+	const float MAX_REFLECTION_LOD = 4.0;
+	vec3 radianceColor = textureLod(radianceMap, R, roughness * MAX_REFLECTION_LOD).rgb;
+	vec2 brdf = texture(brdfLUT, vec2(NdotV, roughness)).rg;
+	vec3 specular = radianceColor * (F * brdf.x + brdf.y);
+
+	vec3 ambient = (kD * diffuse + specular) * ao;
 	
-	vec3 color = ambient + Lo; // + emission
+	vec3 color = ambient + Lo + emission;
+
 
 	// HDR tonemapping
 	color = color / (color + vec3(1.0));
 	// gamma correction
 	color = pow(color, vec3(1.0/2.2));
+
 
 	fragColor = vec4(color, 1.0);
 

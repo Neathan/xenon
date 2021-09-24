@@ -3,9 +3,11 @@
 #include <map>
 
 #include <stb_image.h>
+#include <ktx.h>
 
 #include "xenon/core/assert.h"
 #include "xenon/core/log.h"
+
 
 namespace xe {
 
@@ -69,11 +71,17 @@ namespace xe {
 		std::shared_ptr<Texture> texture;
 		if (!isTextureFormatFloatFormat(format)) {
 			unsigned char* data = stbi_load(path.c_str(), &width, &height, &channels, 0);
+			if (!data) {
+				return nullptr;
+			}
 			texture = loadTextureInternal(path, data, width, height, channels, type, format, params);
 			stbi_image_free(data);
 		}
 		else {
 			float* data = stbi_loadf(path.c_str(), &width, &height, &channels, 0);
+			if (!data) {
+				return nullptr;
+			}
 			texture = loadTextureInternal(path, data, width, height, channels, type, format, params);
 			stbi_image_free(data);
 		}
@@ -87,20 +95,67 @@ namespace xe {
 		if (cache) {
 			return cache;
 		}
-
 		return loadTextureInternal(signature, data, width, height, channels, type, format, params);
 	}
 
-	std::shared_ptr<Texture> createEmptyTexture(int width, int height, TextureType type, TextureFormat format, const TextureParameters& params) {
-		GLuint textureID;
-		glCreateTextures(GL_TEXTURE_2D, 1, &textureID);
+	std::shared_ptr<Texture> loadKTXTexture(const std::string& path, TextureType type, const TextureParameters& params) {
+		// Check cache for texture
+		auto cache = checkCache(path);
+		if (cache) {
+			return cache;
+		}
+
+		std::shared_ptr<Texture> texture;
+
+		ktxTexture* ktxTexture;
+		ktx_error_code_e result = ktxTexture_CreateFromNamedFile(path.c_str(), KTX_TEXTURE_CREATE_NO_FLAGS, &ktxTexture);
+		if (result != ktx_error_code_e::KTX_SUCCESS) {
+			return nullptr;
+		}
+
+		GLuint textureID = 0;
+		GLenum target, glError;
+		ktxTexture_GLUpload(ktxTexture, &textureID, &target, &glError);
+
+		if (glError != GL_NO_ERROR) {
+			return nullptr;
+		}
 
 		glTextureParameteri(textureID, GL_TEXTURE_MIN_FILTER, params.minFilter);
 		glTextureParameteri(textureID, GL_TEXTURE_MAG_FILTER, params.magFilter);
 		glTextureParameteri(textureID, GL_TEXTURE_WRAP_S, params.wrapS);
 		glTextureParameteri(textureID, GL_TEXTURE_WRAP_T, params.wrapT);
 
-		glTextureStorage2D(textureID, 1, getTextureFormatInternalFormat(format), width, height);
+		// TODO: Extract texture metadata and include missing info in texture
+		texture = std::make_shared<Texture>(Texture{ textureID, type, TextureParameters(), (int)ktxTexture->baseWidth, (int)ktxTexture->baseHeight, 0, TextureFormat::UNKNOWN, path });
+
+		ktxTexture_Destroy(ktxTexture);
+
+		return texture;
+	}
+
+	std::shared_ptr<Texture> createEmptyTexture(int width, int height, TextureType type, TextureFormat format, const TextureParameters& params, int samples) {
+		XE_ASSERT(samples >= 1);
+
+		GLuint textureID;
+		if (samples == 1) {
+			glCreateTextures(GL_TEXTURE_2D, 1, &textureID);
+			glTextureParameteri(textureID, GL_TEXTURE_MIN_FILTER, params.minFilter);
+			glTextureParameteri(textureID, GL_TEXTURE_MAG_FILTER, params.magFilter);
+			glTextureParameteri(textureID, GL_TEXTURE_WRAP_S, params.wrapS);
+			glTextureParameteri(textureID, GL_TEXTURE_WRAP_T, params.wrapT);
+		}
+		else {
+			glCreateTextures(GL_TEXTURE_2D_MULTISAMPLE, 1, &textureID);
+		}
+
+
+		if (samples == 1) {
+			glTextureStorage2D(textureID, 1, getTextureFormatInternalFormat(format), width, height);
+		}
+		else {
+			glTextureStorage2DMultisample(textureID, samples, getTextureFormatInternalFormat(format), width, height, GL_FALSE);
+		}
 
 		return std::make_shared<Texture>(Texture{ textureID, type, params, width, height, 0, format, "uncached-texture" });;
 	}

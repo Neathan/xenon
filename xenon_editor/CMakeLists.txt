@@ -26,7 +26,7 @@ target_include_directories(imguizmo PUBLIC libs/ImGuizmo/)
 target_link_libraries(imguizmo PUBLIC imgui)
 
 
-add_executable(xenon_editor "src/main.cpp" "src/orbit_camera.h" "src/orbit_camera.cpp"   "src/ui_elements.h" "src/ui_elements.cpp")
+add_executable(xenon_editor "src/main.cpp" "src/orbit_camera.h" "src/orbit_camera.cpp"   "src/ui_elements.h" "src/ui_elements.cpp" "src/ui/model_inspector.h" "src/ui/model_inspector.cpp")
 target_link_libraries(xenon_editor PUBLIC xenon)
 target_link_libraries(xenon_editor PUBLIC imgui)
 target_link_libraries(xenon_editor PUBLIC imguizmo)

@@ -1,6 +1,8 @@
 #include "orbit_camera.h"
 
+#include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 #include <imgui.h>
 
@@ -8,6 +10,7 @@ namespace xe {
 
 	void updateCameraTransform(OrbitCamera& camera) {
 		camera.transform = glm::mat4(1.0f);
+		camera.transform = glm::translate(camera.transform, camera.center);
 		camera.transform = glm::rotate(camera.transform, glm::radians(camera.yaw), glm::vec3(0, 1, 0));
 		camera.transform = glm::rotate(camera.transform, glm::radians(camera.pitch), glm::vec3(1, 0, 0));
 		camera.transform = glm::translate(camera.transform, glm::vec3(0, 0, camera.distance));
@@ -22,17 +25,31 @@ namespace xe {
 	}
 
 	void updateOrbitCameraProjection(OrbitCamera& camera, int width, int height, float near, float far) {
-		camera.projection = glm::perspectiveFov(glm::radians(80.0f), (float)width, (float)height, near, far);
+		camera.projection = glm::perspectiveFov(glm::radians(60.0f), (float)width, (float)height, near, far);
 	}
 
-	void updateOrbitCamera(OrbitCamera& camera) {
-		if (Input::isMouseButtonHeld(GLFW_MOUSE_BUTTON_RIGHT)) {
-			camera.pitch -= Input::getMouseDeltaY();
-			camera.yaw -= Input::getMouseDeltaX();
+	void updateOrbitCamera(OrbitCamera& camera, Timestep ts) {
+		if (Input::isMouseButtonHeld(GLFW_MOUSE_BUTTON_MIDDLE) && Input::isKeyHeld(GLFW_KEY_LEFT_SHIFT)) {
+			glm::quat rotation = glm::quat(glm::radians(glm::vec3(camera.pitch, camera.yaw, 0)));
+			camera.center += rotation * glm::vec3(-Input::getMouseDeltaX(), 0, 0) * camera.distance / 1000.0f;
+			camera.center += rotation * glm::vec3(0, Input::getMouseDeltaY(), 0) * camera.distance / 1000.0f;
+			camera.lerpTarget = camera.center;
+		}
+		else if (Input::isMouseButtonHeld(GLFW_MOUSE_BUTTON_MIDDLE)) {
+			camera.pitch -= Input::getMouseDeltaY() * 0.5f;
+			camera.yaw -= Input::getMouseDeltaX() * 0.5f;
 		}
 
-		camera.distance -= Input::getScrollDeltaY() * 0.2f;
+		camera.distance -= Input::getScrollDeltaY() * 0.1f * camera.distance;
+		camera.distance = glm::clamp(camera.distance, 0.1f, 100.0f);
+
+		camera.center += (camera.lerpTarget - camera.center) * ts.deltaTime * glm::max(1.0f / glm::max(glm::distance(camera.center, camera.lerpTarget), 100.0f), 10.0f);
+
 		updateCameraTransform(camera);
+	}
+
+	void cameraFocus(OrbitCamera& camera, glm::vec3 position) {
+		camera.lerpTarget = position;
 	}
 
 	void renderOrbitCameraUI(OrbitCamera& camera) {

@@ -92,18 +92,21 @@ namespace xe {
 		}
 		loadInt(*renderer.shader, "pointLightsUsed", index);
 		
-		// Load environment ibl
-		glActiveTexture(GL_TEXTURE0 + (int)TextureType::IBL_CUBEMAP);
-		glBindTexture(GL_TEXTURE_CUBE_MAP, environment.iblCubemap->textureID);
-		glActiveTexture(GL_TEXTURE0);
+		// Load environment and brdf
+		glBindTextureUnit((int)TextureType::IRRADIANCE_CUBEMAP, environment.irradianceMap->textureID);
+		glBindTextureUnit((int)TextureType::RADIANCE_CUBEMAP, environment.radianceMap->textureID);
+		glBindTextureUnit((int)TextureType::BRDF_LUT, renderer.brdfLUT->textureID);
+
 		unbindShader();
 
 		// Render models
 		auto modelView = scene->registry.view<ModelComponent, IdentityComponent>();
 		for (auto [entity, modelComponent, identityComponent] : modelView.each()) {
 			if (modelComponent.model) {
+				if(modelComponent.wireframe) glPolygonMode(GL_FRONT, GL_LINE);
 				setObjectID(renderer, identityComponent.uuid);
 				renderModel(renderer, *modelComponent.model, getWorldMatrix({ entity, scene }), camera);
+				if (modelComponent.wireframe) glPolygonMode(GL_FRONT, GL_FILL);
 			}
 		}
 	}

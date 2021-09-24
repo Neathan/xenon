@@ -7,4 +7,5 @@
 #include "xenon/graphics/framebuffer.h"
 #include "xenon/graphics/primitives.h"
 #include "xenon/graphics/ibl_loader.h"
+#include "xenon/graphics/brdf.h"
 #include "xenon/scene/scene.h"

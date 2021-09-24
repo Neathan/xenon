@@ -20,7 +20,9 @@ namespace xe {
 		NORMAL = 2,
 		AO = 3,
 		EMISSIVE = 4,
-		IBL_CUBEMAP = 5,
+		IRRADIANCE_CUBEMAP = 5,
+		RADIANCE_CUBEMAP = 6,
+		BRDF_LUT = 7,
 
 		IBL_SOURCE = 10,
 
@@ -41,7 +43,9 @@ namespace xe {
 		SRGB = 5,
 		SRGBA = 6,
 
-		DEPTH = 7
+		DEPTH = 7,
+
+		UNKNOWN = -1
 	};
 
 	struct TextureParameters {
@@ -71,7 +75,9 @@ namespace xe {
 	std::shared_ptr<Texture> loadTexture(const std::string& signature, const unsigned char* data, int width, int height, int channels, TextureType type, TextureFormat format = TextureFormat::RGBA, const TextureParameters& params = TextureParameters{});
 	// TODO: Add signature float data function
 
-	std::shared_ptr<Texture> createEmptyTexture(int width, int height, TextureType type, TextureFormat format = TextureFormat::RGBA, const TextureParameters& params = TextureParameters{});
+	std::shared_ptr<Texture> loadKTXTexture(const std::string& path, TextureType type, const TextureParameters& params = TextureParameters{});
+
+	std::shared_ptr<Texture> createEmptyTexture(int width, int height, TextureType type, TextureFormat format = TextureFormat::RGBA, const TextureParameters& params = TextureParameters{}, int samples = 1);
 	std::shared_ptr<Texture> createEmptyCubemapTexture(int resolution, TextureType cubemapType, TextureFormat format, const TextureParameters& params = TextureParameters{});
 
 

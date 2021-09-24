@@ -18,6 +18,7 @@ namespace xe {
 	struct Renderer {
 		Shader* shader;
 		Shader* envShader;
+		std::shared_ptr<Texture> brdfLUT;
 		Model* envCubeModel = nullptr;
 	};
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <glm/glm.hpp>
+
 #include <array>
 #include <cstdint>
 
@@ -29,19 +31,28 @@ namespace xe {
 
 	typedef std::array<PrimitiveAttribute, XE_PRIMITIVE_ATTRIBUTE_TYPES> PrimitiveAttributeArray;
 
+	struct BoundingBox {
+		glm::vec3 min;
+		glm::vec3 max;
+
+		BoundingBox operator* (glm::mat4x4 matrix);
+		BoundingBox operator+ (const BoundingBox& other);
+	};
+
 	struct Primitive {
 		GLuint vao;
 		GLenum mode;  // Type of primitive
 		GLsizei count;
 		int material;
+		BoundingBox bounds;
 
 		GLuint ebo = 0;
 		GLenum indexType = 0;
 
 		// DrawArrays
-		Primitive(GLuint vao, GLenum mode, GLsizei count, int material);
+		Primitive(GLuint vao, GLenum mode, GLsizei count, int material, const BoundingBox& bounds);
 		// DrawElements
-		Primitive(GLuint vao, GLenum mode, GLsizei count, int material, GLuint ebo, GLenum indexType);
+		Primitive(GLuint vao, GLenum mode, GLsizei count, int material, const BoundingBox& bounds, GLuint ebo, GLenum indexType);
 	};
 
 }

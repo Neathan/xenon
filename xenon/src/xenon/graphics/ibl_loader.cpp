@@ -14,9 +14,9 @@ namespace xe {
 		Environment environment;
 
 		TextureParameters textureParams = TextureParameters{ GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE };
-		environment.iblTexture = loadTexture(path, TextureType::IBL_SOURCE, TextureFormat::RGB_FLOAT, textureParams);
-		environment.iblCubemap = createEmptyCubemapTexture(iblResolution, TextureType::IBL_CUBEMAP, TextureFormat::RGB_FLOAT, textureParams);
-		environment.environmentCubemap = createEmptyCubemapTexture(resolution, TextureType::IBL_CUBEMAP, TextureFormat::RGB_FLOAT, textureParams);
+		std::shared_ptr<Texture> iblTexture = loadTexture(path, TextureType::IBL_SOURCE, TextureFormat::RGB_FLOAT, textureParams);
+		environment.irradianceMap = createEmptyCubemapTexture(iblResolution, TextureType::IRRADIANCE_CUBEMAP, TextureFormat::RGB_FLOAT, textureParams);
+		environment.environmentCubemap = createEmptyCubemapTexture(resolution, TextureType::IRRADIANCE_CUBEMAP, TextureFormat::RGB_FLOAT, textureParams);
 		
 		glm::mat4 captureProjection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
 		glm::mat4 captureViews[] = {
@@ -54,8 +54,7 @@ namespace xe {
 		glViewport(0, 0, resolution, resolution);
 		
 		// Load IBL Source texture
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, environment.iblTexture->textureID);
+		glBindTextureUnit(0, iblTexture->textureID);
 		
 		// Render
 		glDisable(GL_CULL_FACE);
@@ -71,7 +70,7 @@ namespace xe {
 		}
 		glBindVertexArray(0);
 		glEnable(GL_CULL_FACE);
-		glBindTexture(GL_TEXTURE_2D, 0);
+		glBindTextureUnit(0, 0);
 		unbindShader();
 		unbindFramebuffer();
 
@@ -85,13 +84,12 @@ namespace xe {
 		glViewport(0, 0, iblResolution, iblResolution);
 
 		// Load cubemap
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_CUBE_MAP, environment.environmentCubemap->textureID);
+		glBindTextureUnit(0, environment.environmentCubemap->textureID);
 
 		glDisable(GL_CULL_FACE);
 		for (int face = 0; face < 6; ++face) {
 			loadMat4(*iblShader, "view", captureViews[face]);
-			glNamedFramebufferTextureLayer(framebuffer->frambufferID, GL_COLOR_ATTACHMENT0, environment.iblCubemap->textureID, 0, face);
+			glNamedFramebufferTextureLayer(framebuffer->frambufferID, GL_COLOR_ATTACHMENT0, environment.irradianceMap->textureID, 0, face);
 			glClear(GL_COLOR_BUFFER_BIT);
 
 			// Render cube
@@ -101,7 +99,7 @@ namespace xe {
 		}
 		glBindVertexArray(0);
 		glEnable(GL_CULL_FACE);
-		glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+		glBindTextureUnit(0, 0);
 		unbindShader();
 		unbindFramebuffer();
 

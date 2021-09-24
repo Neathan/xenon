@@ -5,8 +5,8 @@
 
 namespace xe {
 
-	Framebuffer* createFramebuffer(unsigned int width, unsigned int height) {
-		Framebuffer* framebuffer = new Framebuffer{ width, height };
+	Framebuffer* createFramebuffer(unsigned int width, unsigned int height, int samples) {
+		Framebuffer* framebuffer = new Framebuffer{ width, height, samples };
 		glCreateFramebuffers(1, &framebuffer->frambufferID);
 		return framebuffer;
 	}
@@ -39,22 +39,26 @@ namespace xe {
 		if (framebuffer->status != FramebufferStatus::UNINITIALIZED) {
 			// TODO: Destroy previous textures
 			// TODO: Manage incomplete state
+			framebuffer->colorBuffers.clear();
 		}
-
-		std::vector<GLenum> drawBuffers;
 
 		for (auto& [target, attachment] : framebuffer->attachments) {
 			if (attachment.texture) {
-				XE_LOG_WARN_F("Framebuffer texture already exists, overwriting framebuffer texture: {}", attachment.texture->sourcePath);
+				XE_LOG_WARN_F("FRAMEBUFFER: Framebuffer texture already exists, overwriting framebuffer texture: {}", attachment.texture->sourcePath);
 			}
-			attachment.texture = createEmptyTexture(framebuffer->width, framebuffer->height, attachment.type, attachment.format, attachment.textureParams);
+			attachment.texture = createEmptyTexture(framebuffer->width, framebuffer->height, attachment.type, attachment.format, attachment.textureParams, framebuffer->samples);
 			glNamedFramebufferTexture(framebuffer->frambufferID, attachment.target, attachment.texture->textureID, 0);
 
-			if (attachment.target != GL_DEPTH_ATTACHMENT) {
-				drawBuffers.push_back(attachment.target);
+			if (attachment.target != GL_DEPTH_ATTACHMENT && attachment.target != GL_STENCIL_ATTACHMENT) {
+				framebuffer->colorBuffers.push_back(attachment.target);
 			}
 		}
-		glNamedFramebufferDrawBuffers(framebuffer->frambufferID, drawBuffers.size(), drawBuffers.data());
+		if (framebuffer->colorBuffers.size()) {
+			glNamedFramebufferDrawBuffers(framebuffer->frambufferID, framebuffer->colorBuffers.size(), framebuffer->colorBuffers.data());
+		}
+		else {
+			XE_LOG_DEBUG_F("FRAMEBUFFER: Framebuffer has no drawbuffers (depth only)");
+		}
 
 		GLenum status = glCheckNamedFramebufferStatus(framebuffer->frambufferID, GL_FRAMEBUFFER);
 		if (status == GL_FRAMEBUFFER_COMPLETE) {
@@ -80,13 +84,13 @@ namespace xe {
 	void clearFramebuffer(const Framebuffer& framebuffer, const Shader& shader) {
 		bindShader(shader);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		/*
-		static GLfloat zeroF = 0;
+		
+		/*static GLfloat zeroF = 0;
 		static GLint zeroI = 0;
-		glClearNamedFramebufferfv(framebuffer->frambufferID, GL_COLOR, 0, &zeroF);
-		glClearNamedFramebufferiv(framebuffer->frambufferID, GL_COLOR, 1, &zeroI);
-		glClearNamedFramebufferfv(framebuffer->frambufferID, GL_DEPTH, 0, &zeroF);
-		*/
+		glClearNamedFramebufferfv(framebuffer.frambufferID, GL_COLOR, 0, &zeroF);
+		glClearNamedFramebufferiv(framebuffer.frambufferID, GL_COLOR, 1, &zeroI);
+		glClearNamedFramebufferfv(framebuffer.frambufferID, GL_DEPTH, 0, &zeroF);*/
+		
 		unbindShader();
 	}
 
@@ -96,6 +100,30 @@ namespace xe {
 		framebuffer->height = height;
 		glCreateFramebuffers(1, &framebuffer->frambufferID);
 		buildFramebuffer(framebuffer);
+	}
+
+	void blitFramebuffers(Framebuffer* source, Framebuffer* target) {
+		for (const auto [attachmentTarget, attachment] : source->attachments) {
+			if (target->attachments.find(attachmentTarget) != target->attachments.end()) {
+				glNamedFramebufferReadBuffer(source->frambufferID, attachmentTarget);
+				glNamedFramebufferDrawBuffer(target->frambufferID, attachmentTarget);
+				GLbitfield filter = GL_COLOR_BUFFER_BIT;
+				if (attachmentTarget == GL_DEPTH_ATTACHMENT) {
+					filter = GL_DEPTH_ATTACHMENT;
+				}
+				else if(attachmentTarget == GL_STENCIL_ATTACHMENT) {
+					filter = GL_STENCIL_BUFFER_BIT;
+				}
+				glBlitNamedFramebuffer(source->frambufferID, target->frambufferID, 0, 0, source->width, source->height, 0, 0, target->width, target->height, filter, GL_NEAREST);
+			}
+		}
+		// Restore draw- and readbuffers
+		if (source->colorBuffers.size() > 0) {
+			glNamedFramebufferReadBuffer(source->frambufferID, source->colorBuffers.at(0));
+		}
+		if (target->colorBuffers.size() > 0) {
+			glNamedFramebufferDrawBuffers(target->frambufferID, target->colorBuffers.size(), target->colorBuffers.data());
+		}
 	}
 
 

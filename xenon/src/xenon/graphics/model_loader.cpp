@@ -62,10 +62,8 @@ namespace xe {
 		const std::map<size_t, GLuint>& bufferVBOs,
 		const std::string& path,
 		const size_t basePrimitiveIndex,
-		std::vector<size_t>& primitiveIndices,
-		std::vector<Primitive>& primitives,
-		std::vector<Material>& materials,
-		std::vector<PrimitiveAttributeArray>& primitiveAttributes) {
+		const glm::mat4& globalPosition,
+		Model* outputModel) {
 
 		size_t primitiveCount = 0;
 
@@ -75,6 +73,8 @@ namespace xe {
 
 			PrimitiveAttributeArray primitiveAttributeArray;
 
+			BoundingBox primitiveBounds;
+
 			// Process attributes
 			for (const auto& [attribute, accessorIndex] : primitive.attributes) {
 				tinygltf::Accessor accessor = model.accessors[accessorIndex];
@@ -83,10 +83,14 @@ namespace xe {
 				GLuint vbo = bufferVBOs.at(accessor.bufferView);
 
 				PrimitiveAttributeType type = PrimitiveAttributeType::INVALID;
-				if (attribute.compare("POSITION") == 0) type = PrimitiveAttributeType::POSITION;
-				if (attribute.compare("TANGENT") == 0) {
-					type = PrimitiveAttributeType::TANGENT;
+				if (attribute.compare("POSITION") == 0) {
+					type = PrimitiveAttributeType::POSITION;
+					primitiveBounds = BoundingBox {
+						globalPosition * glm::vec4(accessor.minValues[0], accessor.minValues[1], accessor.minValues[2], 1),
+						globalPosition * glm::vec4(accessor.maxValues[0], accessor.maxValues[1], accessor.maxValues[2], 1)
+					};
 				}
+				if (attribute.compare("TANGENT") == 0) type = PrimitiveAttributeType::TANGENT;
 				if (attribute.compare("NORMAL") == 0) type = PrimitiveAttributeType::NORMAL;
 				if (attribute.compare("TEXCOORD_0") == 0) type = PrimitiveAttributeType::TEXCOORD_0;
 				// TODO: Implement additional attributes
@@ -110,7 +114,10 @@ namespace xe {
 				}
 			}
 			// Add primitive attributes array
-			primitiveAttributes.push_back(primitiveAttributeArray);
+			outputModel->primitiveAttributes.push_back(primitiveAttributeArray);
+			
+			// TODO: Fix issue with bounding box being initialized as zero,zero
+			outputModel->bounds = outputModel->bounds + primitiveBounds;
 
 			// Check if primitive is indexed or not
 			if (primitive.indices >= 0) {
@@ -119,7 +126,7 @@ namespace xe {
 				glVertexArrayElementBuffer(vao, ebo);
 
 				// NOTE: Casting size_t to GLsizei is neccesary to comply with the limit set by OpenGL
-				primitives.push_back(Primitive{ vao, (GLenum)primitive.mode, (GLsizei)indexAccessor.count, primitive.material, ebo, (GLenum)indexAccessor.componentType });
+				outputModel->primitives.push_back(Primitive{ vao, (GLenum)primitive.mode, (GLsizei)indexAccessor.count, primitive.material, primitiveBounds, ebo, (GLenum)indexAccessor.componentType });
 			}
 			else {
 				// Check for missing position attribute on non-index primitive
@@ -130,10 +137,10 @@ namespace xe {
 				//  equal for a given primitive)."
 				const auto& attribute = primitiveAttributeArray[(uint8_t)PrimitiveAttributeType::POSITION];
 				XE_ASSERT(attribute.vbo != 0);
-				primitives.push_back(Primitive{ vao, (GLenum)primitive.mode, attribute.count, primitive.material });
+				outputModel->primitives.push_back(Primitive{ vao, (GLenum)primitive.mode, attribute.count, primitive.material, primitiveBounds });
 			}
 			// Add primitive index
-			primitiveIndices.push_back(basePrimitiveIndex + primitiveCount);
+			outputModel->primitiveIndices.push_back(basePrimitiveIndex + primitiveCount);
 
 			// Increment counter
 			++primitiveCount;
@@ -235,18 +242,26 @@ namespace xe {
 		uint16_t currentIndex = 1;
 		size_t currentPrimitiveIndex = 0;
 
+		std::vector<glm::mat4x4> globalPositions;
+		globalPositions.emplace_back(glm::mat4x4(1.0f));
+
 		while (!queuedNodes.empty()) {
 			const QueuedNode& currentNode = queuedNodes.front();
 			const tinygltf::Node& node = gltfModel.nodes[currentNode.node];
 			
 			// Process node
 			// Add local position
-			model->localPositions.push_back(getNodeTransform(node));
+			glm::mat4 localPosition = getNodeTransform(node);
+			model->localPositions.push_back(localPosition);
 			
+			const glm::mat4& parentMatrix = globalPositions[currentNode.parent];
+			glm::mat4 globalPosition = parentMatrix * localPosition;
+			globalPositions.push_back(globalPosition);
+
 			// Check if node has valid mesh
 			uint8_t primitiveCount = 0;
 			if (node.mesh >= 0 && node.mesh < gltfModel.meshes.size()) {
-				size_t count = processPrimitives(gltfModel, gltfModel.meshes[node.mesh], bufferVBOs, path, currentPrimitiveIndex, model->primitiveIndices, model->primitives, model->materials, model->primitiveAttributes);
+				size_t count = processPrimitives(gltfModel, gltfModel.meshes[node.mesh], bufferVBOs, path, currentPrimitiveIndex, globalPosition, model);
 				primitiveCount += count;
 				currentPrimitiveIndex += count;
 			}

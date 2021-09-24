@@ -4,12 +4,15 @@ project(xenon CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(KTX_FEATURE_STATIC_LIBRARY ON)
+
 add_subdirectory(libs/glad/)
 add_subdirectory(libs/glfw/)
 add_subdirectory(libs/spdlog/)
 add_subdirectory(libs/glm/)
 add_subdirectory(libs/tinygltf/)
 add_subdirectory(libs/entt)
+add_subdirectory(libs/ktx)
 
 add_library(xenon STATIC
 	"src/xenon/core/application.cpp"
@@ -43,7 +46,7 @@ add_library(xenon STATIC
 	"src/xenon/scene/scene.h"
 	"src/xenon/core/uuid.cpp"
 	"src/xenon/core/uuid.h"
- "src/xenon/scene/scene.cpp"  "src/xenon/graphics/light.h" "src/xenon/graphics/ibl_loader.h" "src/xenon/graphics/environment.h" "src/xenon/graphics/ibl_loader.cpp")
+ "src/xenon/scene/scene.cpp"  "src/xenon/graphics/light.h" "src/xenon/graphics/ibl_loader.h" "src/xenon/graphics/environment.h" "src/xenon/graphics/ibl_loader.cpp" "src/xenon/graphics/brdf.h" "src/xenon/graphics/brdf.cpp")
 
 
 target_compile_definitions(xenon PUBLIC GLFW_INCLUDE_NONE)
@@ -55,6 +58,7 @@ target_link_libraries(xenon PUBLIC spdlog::spdlog)
 target_link_libraries(xenon PUBLIC glm)
 target_link_libraries(xenon PUBLIC tinygltf)
 target_link_libraries(xenon PUBLIC EnTT::EnTT)
+target_link_libraries(xenon PUBLIC ktx)
 
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
                     COMMAND ${CMAKE_COMMAND} -E copy_directory

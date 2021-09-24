@@ -148,8 +148,7 @@ namespace xe {
 		loadVec4(shader, "baseColorFactor", material.pbrMetallicRoughness.baseColorFactor);
 
 		if (material.pbrMetallicRoughness.baseColorTexture) {
-			glActiveTexture(GL_TEXTURE0 + (int)material.pbrMetallicRoughness.baseColorTexture->type);
-			glBindTexture(GL_TEXTURE_2D, material.pbrMetallicRoughness.baseColorTexture->textureID);
+			glBindTextureUnit((int)material.pbrMetallicRoughness.baseColorTexture->type, material.pbrMetallicRoughness.baseColorTexture->textureID);
 			loadInt(shader, "usingAlbedoMap", true);
 		}
 		else {
@@ -160,8 +159,7 @@ namespace xe {
 		loadFloat(shader, "roughnessFactor", material.pbrMetallicRoughness.roughnessFactor);
 
 		if (material.pbrMetallicRoughness.metallicRoughnessTexture) {
-			glActiveTexture(GL_TEXTURE0 + (int)material.pbrMetallicRoughness.metallicRoughnessTexture->type);
-			glBindTexture(GL_TEXTURE_2D, material.pbrMetallicRoughness.metallicRoughnessTexture->textureID);
+			glBindTextureUnit((int)material.pbrMetallicRoughness.metallicRoughnessTexture->type, material.pbrMetallicRoughness.metallicRoughnessTexture->textureID);
 			loadInt(shader, "usingMetallicRoughnessMap", true);
 		}
 		else {
@@ -169,8 +167,7 @@ namespace xe {
 		}
 
 		if (material.normalTexture) {
-			glActiveTexture(GL_TEXTURE0 + (int)material.normalTexture->type);
-			glBindTexture(GL_TEXTURE_2D, material.normalTexture->textureID);
+			glBindTextureUnit((int)material.normalTexture->type, material.normalTexture->textureID);
 			loadInt(shader, "usingNormalMap", true);
 		}
 		else {
@@ -178,8 +175,7 @@ namespace xe {
 		}
 
 		if (material.occlusionTexture) {
-			glActiveTexture(GL_TEXTURE0 + (int)material.occlusionTexture->type);
-			glBindTexture(GL_TEXTURE_2D, material.occlusionTexture->textureID);
+			glBindTextureUnit((int)material.occlusionTexture->type, material.occlusionTexture->textureID);
 			loadInt(shader, "usingAOMap", true);
 		}
 		else {
@@ -187,8 +183,7 @@ namespace xe {
 		}
 
 		if (material.emissiveTexture) {
-			glActiveTexture(GL_TEXTURE0 + (int)material.emissiveTexture->type);
-			glBindTexture(GL_TEXTURE_2D, material.emissiveTexture->textureID);
+			glBindTextureUnit((int)material.emissiveTexture->type, material.emissiveTexture->textureID);
 			loadInt(shader, "usingEmissiveMap", true);
 		}
 		else {
@@ -199,9 +194,6 @@ namespace xe {
 		loadInt(shader, "alphaMode", (int)material.alphaMode);
 		loadFloat(shader, "alphaCutoff", material.alphaCutoff);
 		loadInt(shader, "doubleSided", material.doubleSided);  // bool = int
-
-		// Clear state
-		glActiveTexture(GL_TEXTURE0);
 	}
 
 	void loadLight(const Shader& shader, const glm::vec3& position, const PointLight& light, int index) {
