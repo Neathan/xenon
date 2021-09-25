@@ -34,6 +34,6 @@ namespace xe {
 	void loadMat4(const Shader& shader, const char* name, glm::mat4 value);
 
 	void loadMaterial(const Shader& shader, const Material& material);
-	void loadLight(const Shader& shader, const glm::vec3& position, const PointLight& light, int index);
+	void loadLight(const Shader& shader, const glm::vec3& position, const PointLightComponent& light, int index);
 
 }

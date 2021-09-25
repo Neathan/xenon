@@ -196,7 +196,7 @@ namespace xe {
 		loadInt(shader, "doubleSided", material.doubleSided);  // bool = int
 	}
 
-	void loadLight(const Shader& shader, const glm::vec3& position, const PointLight& light, int index) {
+	void loadLight(const Shader& shader, const glm::vec3& position, const PointLightComponent& light, int index) {
 		loadVec3(shader, ("pointLights[" + std::to_string(index) + "].position").c_str(), position);
 		loadVec3(shader, ("pointLights[" + std::to_string(index) + "].color").c_str(), light.color);
 	}

@@ -84,7 +84,7 @@ namespace xe {
 
 	void renderScene(Scene* scene, const Renderer& renderer, const Camera& camera, const Environment& environment) {
 		// Load lights
-		auto lightView = scene->registry.view<PointLight, IdentityComponent, TransformComponent>();
+		auto lightView = scene->registry.view<PointLightComponent, IdentityComponent, TransformComponent>();
 		int index = 0;
 		bindShader(*renderer.shader);
 		for (const auto [entity, pointLight, identity, transform] : lightView.each()) {

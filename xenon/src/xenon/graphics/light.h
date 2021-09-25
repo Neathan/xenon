@@ -4,7 +4,7 @@
 
 namespace xe {
 
-	struct PointLight {
+	struct PointLightComponent {
 		glm::vec3 color;
 	};
 

@@ -15,7 +15,7 @@ namespace xe {
 		glDeleteFramebuffers(1, &framebuffer->frambufferID);
 		framebuffer->frambufferID = 0;
 
-		for (auto [target, attachment] : framebuffer->attachments) {
+		for (auto& [target, attachment] : framebuffer->attachments) {
 			if (attachment.texture) {
 				glDeleteTextures(1, &attachment.texture->textureID);
 				attachment.texture = nullptr;
