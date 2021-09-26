@@ -112,7 +112,13 @@ int main() {
 		bindFramebuffer(*editorData->framebuffer);
 		clearFramebuffer(*editorData->framebuffer, *editorData->renderer->shader);
 		renderScene(editorData->scene, *editorData->renderer, editorData->camera, environments[currentEnvironment].environment);
+		// TODO: Make this nicer
+		// Disable rendering to objectID attachment
+		glNamedFramebufferDrawBuffer(editorData->framebuffer->frambufferID, GL_COLOR_ATTACHMENT0);
 		renderEnvironment(editorData->renderer, environments[currentEnvironment].environment, editorData->camera);
+		renderGrid(editorData->gridShader, editorData->gridModel, editorData->camera);
+		// Re-enable rendering to objectID attachemtn
+		glNamedFramebufferDrawBuffers(editorData->framebuffer->frambufferID, editorData->framebuffer->colorBuffers.size(), editorData->framebuffer->colorBuffers.data());
 		unbindFramebuffer();
 		// Blit framebuffer data into displayedFramebuffer (resolve AA data)
 		blitFramebuffers(editorData->framebuffer, editorData->displayedFramebuffer);
@@ -172,10 +178,12 @@ int main() {
 		
 		if (editorData->sceneViewportSizeChanged) {
 			editorData->sceneViewportSizeChanged = false;
-			glViewport(0, 0, editorData->sceneViewportSize.x, editorData->sceneViewportSize.y);
-			updateFramebufferSize(editorData->framebuffer, editorData->sceneViewportSize.x, editorData->sceneViewportSize.y);
-			updateFramebufferSize(editorData->displayedFramebuffer, editorData->sceneViewportSize.x, editorData->sceneViewportSize.y);
-			updateOrbitCameraProjection(editorData->camera, editorData->sceneViewportSize.x, editorData->sceneViewportSize.y);
+			if (editorData->sceneViewportSize.x > 0 && editorData->sceneViewportSize.y > 0) {
+				glViewport(0, 0, editorData->sceneViewportSize.x, editorData->sceneViewportSize.y);
+				updateFramebufferSize(editorData->framebuffer, editorData->sceneViewportSize.x, editorData->sceneViewportSize.y);
+				updateFramebufferSize(editorData->displayedFramebuffer, editorData->sceneViewportSize.x, editorData->sceneViewportSize.y);
+				updateOrbitCameraProjection(editorData->camera, editorData->sceneViewportSize.x, editorData->sceneViewportSize.y);
+			}
 		}
 
 		swapBuffers(application);

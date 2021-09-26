@@ -26,6 +26,8 @@ namespace xe {
 
 	void updateOrbitCameraProjection(OrbitCamera& camera, int width, int height, float near, float far) {
 		camera.projection = glm::perspectiveFov(glm::radians(60.0f), (float)width, (float)height, near, far);
+		camera.near = near;
+		camera.far = far;
 	}
 
 	void updateOrbitCamera(OrbitCamera& camera, Timestep ts) {

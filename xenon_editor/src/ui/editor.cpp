@@ -19,6 +19,7 @@ namespace xe {
 		// Create PBR renderer and shader
 		editor->pbrShader = loadShader("assets/pbr.vert", "assets/pbr.frag");
 		editor->envShader = loadShader("assets/env.vert", "assets/env.frag");
+		editor->gridShader = loadShader("assets/grid.vert", "assets/grid.frag");
 		editor->renderer = createRenderer(editor->pbrShader, editor->envShader);
 
 		/* NOTE: Only needed for runtime rendering. Only included for reference.
@@ -40,6 +41,9 @@ namespace xe {
 		editor->displayedFramebuffer->attachments.insert(createDefaultFramebufferAttachment(DefaultAttachmentType::INTEGER, 1));
 		buildFramebuffer(editor->displayedFramebuffer);
 
+		// Grid model
+		editor->gridModel = generatePlaneModel(1, 1, GeneratorDirection::FRONT);
+
 		// Camera
 		editor->camera = createOrbitCamera(1920, 1080);
 
@@ -52,10 +56,13 @@ namespace xe {
 	void destroyEditor(EditorData* data) {
 		destroyScene(data->scene);
 
+		destroyModel(data->gridModel);
+
 		destroyFramebuffer(data->displayedFramebuffer);
 		destroyFramebuffer(data->framebuffer);
 
 		destroyRenderer(data->renderer);
+		destroyShader(data->gridShader);
 		destroyShader(data->envShader);
 		destroyShader(data->pbrShader);
 

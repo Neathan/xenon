@@ -98,18 +98,16 @@ namespace xe {
 		unbindShader();
 	}
 
-	void renderEnvironment(Renderer* renderer, const Environment& environment, const Camera& camera, bool renderIBL) {
+	void renderEnvironment(Renderer* renderer, const Environment& environment, const Camera& camera) {
 		if (!renderer->envCubeModel) {
 			renderer->envCubeModel = generateCubeModel(glm::vec3(1.0f));
 		}
-
-		setObjectID(*renderer, 0);
 
 		bindShader(*renderer->envShader);
 		loadMat4(*renderer->envShader, "projection", camera.projection);
 		loadMat4(*renderer->envShader, "view", camera.inverseTransform);
 
-		glBindTextureUnit(0, renderIBL ? environment.irradianceMap->textureID : environment.environmentCubemap->textureID);
+		glBindTextureUnit(0, environment.environmentCubemap->textureID);
 
 		glDisable(GL_CULL_FACE);
 		const Primitive& primitive = renderer->envCubeModel->primitives[0];
@@ -119,6 +117,21 @@ namespace xe {
 		glEnable(GL_CULL_FACE);
 
 		glBindTextureUnit(0, 0);
+		unbindShader();
+	}
+
+	void renderGrid(Shader* shader, Model* model, const Camera& camera) {
+		bindShader(*shader);
+		loadMat4(*shader, "projection", camera.projection);
+		loadMat4(*shader, "view", camera.inverseTransform);
+		loadFloat(*shader, "near", camera.near);
+		loadFloat(*shader, "far", camera.far);
+
+		const Primitive& primitive = model->primitives[0];
+		glBindVertexArray(primitive.vao);
+		glDrawArrays(primitive.mode, 0, primitive.count);
+		glBindVertexArray(0);
+
 		unbindShader();
 	}
 

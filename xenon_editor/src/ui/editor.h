@@ -12,10 +12,13 @@ namespace xe {
 		// SECTION: Rendering (initialized)
 		Shader* pbrShader = nullptr;
 		Shader* envShader = nullptr;
+		Shader* gridShader = nullptr;
 		Renderer* renderer = nullptr;
 
 		Framebuffer* framebuffer = nullptr;
 		Framebuffer* displayedFramebuffer = nullptr;
+
+		Model* gridModel = nullptr;
 
 		// SECTION: Viewport (initialized)
 		OrbitCamera camera;
