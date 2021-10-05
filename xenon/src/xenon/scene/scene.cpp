@@ -47,14 +47,14 @@ namespace xe {
 
 	void removeEntity(Scene* scene, UUID id) {
 		XE_ASSERT(scene->entityMap.find(id) != scene->entityMap.end());
-		/* TODO: Parental hierarchy
-		auto children = scene->entityMap.at(id).getComponent<TransformComponent>().children;
 
-		for (auto child : children) {
-			scene->entityMap.at(child).setParent(UUID::None());
+		for (auto& [uuid, entity] : scene->entityMap) {
+			TransformComponent& transform = entity.getComponent<TransformComponent>();
+			if (uuid != id && transform.parent == id) {
+				transform.matrix = getWorldMatrix(entity);;
+				transform.parent = UUID::None();
+			}
 		}
-		scene->entityMap.at(id).setParent(UUID::None());
-		*/
 		scene->registry.destroy(scene->entityMap.at(id).handle);
 		scene->entityMap.erase(id);
 	}
@@ -93,9 +93,9 @@ namespace xe {
 		loadInt(*renderer.shader, "pointLightsUsed", index);
 		
 		// Load environment and brdf
-		glBindTextureUnit((int)TextureType::IRRADIANCE_CUBEMAP, environment.irradianceMap->textureID);
-		glBindTextureUnit((int)TextureType::RADIANCE_CUBEMAP, environment.radianceMap->textureID);
-		glBindTextureUnit((int)TextureType::BRDF_LUT, renderer.brdfLUT->textureID);
+		glBindTextureUnit(5, environment.irradianceMap->textureID);
+		glBindTextureUnit(6, environment.radianceMap->textureID);
+		glBindTextureUnit(7, renderer.brdfLUT->textureID);
 
 		unbindShader();
 

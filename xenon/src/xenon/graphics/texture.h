@@ -1,9 +1,11 @@
 #pragma once
 
 #include <string>
-#include <memory>
 
 #include <glad/gl.h>
+
+#include "xenon/core/asset.h"
+#include "xenon/core/asset_manager.h"
 
 namespace xe {
 	
@@ -11,10 +13,7 @@ namespace xe {
 	// SECTION: Texture
 	//----------------------------------------
 
-	#define TEXTURE_INTERNAL_SIGNATURE "?i-"
-
-	// Note: These should match shader samplers
-	enum class TextureType : unsigned int {
+	/*
 		ALBEDO = 0,
 		METALLIC_ROUGHNESS = 1,
 		NORMAL = 2,
@@ -25,12 +24,16 @@ namespace xe {
 		BRDF_LUT = 7,
 
 		IBL_SOURCE = 10,
+	*/
 
-		GENERIC_RGB = 20,
-		GENERIC_RGBA = 21,
-		GENERIC_FLOAT = 22,
-		GENERIC_RED = 23,
-	};
+	/*enum class TextureType : unsigned int {
+		RGB,
+		RGBA,
+		FLOAT,
+		RED,
+
+		LAST = RED
+	};*/
 
 	enum class TextureFormat : GLenum {
 		RED = 0,
@@ -56,30 +59,29 @@ namespace xe {
 		GLenum wrapR = GL_REPEAT;
 	};
 
-	struct Texture {
+	struct Texture : Asset {
 		const GLuint textureID;
-		const TextureType type;
 		const TextureParameters params;
 
 		const int width;
 		const int height;
 		const int channels;
 		const TextureFormat format;
-
-		const std::string sourcePath;
-
-		~Texture();
 	};
 
-	std::shared_ptr<Texture> loadTexture(const std::string& path, TextureType type, TextureFormat format = TextureFormat::RGBA, const TextureParameters& params = TextureParameters{});
-	std::shared_ptr<Texture> loadTexture(const std::string& signature, const unsigned char* data, int width, int height, int channels, TextureType type, TextureFormat format = TextureFormat::RGBA, const TextureParameters& params = TextureParameters{});
+	/*
+	Texture* loadTexture(const std::string& path, TextureType type = TextureType::GENERIC_RGBA, TextureFormat format = TextureFormat::RGBA, const TextureParameters& params = TextureParameters{});
+	Texture* loadTexture(const unsigned char* data, int width, int height, int channels, TextureType type, TextureFormat format = TextureFormat::RGBA, const TextureParameters& params = TextureParameters{});
 	// TODO: Add signature float data function
+	*/
 
-	std::shared_ptr<Texture> loadKTXTexture(const std::string& path, TextureType type, const TextureParameters& params = TextureParameters{});
+	// TODO: Make private
+	Texture* loadKTXTexture(const std::string& path, const TextureParameters& params = TextureParameters{});
+	
 
-	std::shared_ptr<Texture> createEmptyTexture(int width, int height, TextureType type, TextureFormat format = TextureFormat::RGBA, const TextureParameters& params = TextureParameters{}, int samples = 1);
-	std::shared_ptr<Texture> createEmptyCubemapTexture(int resolution, TextureType cubemapType, TextureFormat format, const TextureParameters& params = TextureParameters{});
-
+	Texture* createEmptyTexture(int width, int height, TextureFormat format = TextureFormat::RGBA, const TextureParameters& params = TextureParameters{}, int samples = 1);
+	Texture* createEmptyCubemapTexture(int resolution, TextureFormat format, const TextureParameters& params = TextureParameters{});
+	
 
 	//----------------------------------------
 	// SECTION: Texture functions
@@ -91,7 +93,15 @@ namespace xe {
 	GLenum getTextureFormatDataType(TextureFormat format);
 	bool isTextureFormatFloatFormat(TextureFormat format);
 
-	void clearUnusedTextures();
-	void clearTextureCache();
+	//----------------------------------------
+	// SECTION: Texture asset functions
+	//----------------------------------------
 
+	Texture* createTextureAsset(AssetManager* manager, const std::string& path, const unsigned char* data, int width, int height, int channels, TextureFormat format = TextureFormat::RGBA, const TextureParameters& params = TextureParameters{});
+	Texture* createInternalTextureAsset(AssetManager* manager, const std::string& hostPath, const std::string& internalPath, const unsigned char* data, int width, int height, int channels, TextureFormat format = TextureFormat::RGBA, const TextureParameters& params = TextureParameters{});
+
+	struct TextureSerializer : AssetSerializer {
+		void serialize(Asset* asset) const override;
+		bool loadData(Asset** asset) const override;
+	};
 }

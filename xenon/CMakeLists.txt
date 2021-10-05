@@ -46,7 +46,16 @@ add_library(xenon STATIC
 	"src/xenon/scene/scene.h"
 	"src/xenon/core/uuid.cpp"
 	"src/xenon/core/uuid.h"
- "src/xenon/scene/scene.cpp"  "src/xenon/graphics/light.h" "src/xenon/graphics/ibl_loader.h" "src/xenon/graphics/environment.h" "src/xenon/graphics/ibl_loader.cpp" "src/xenon/graphics/brdf.h" "src/xenon/graphics/brdf.cpp")
+	"src/xenon/scene/scene.cpp"
+	"src/xenon/graphics/light.h"
+	
+	"src/xenon/graphics/environment.h"
+	
+	"src/xenon/graphics/brdf.h"
+	"src/xenon/graphics/brdf.cpp"
+	"src/xenon/core/asset.h"
+	"src/xenon/core/asset_manager.h"
+ "src/xenon/core/asset.cpp" "src/xenon/core/asset_manager.cpp")
 
 
 target_compile_definitions(xenon PUBLIC GLFW_INCLUDE_NONE)

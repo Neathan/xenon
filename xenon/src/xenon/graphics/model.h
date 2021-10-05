@@ -8,6 +8,8 @@
 #include "xenon/graphics/primitive.h"
 #include "xenon/graphics/material.h"
 
+#include "xenon/core/asset.h"
+
 namespace xe {
 
 	struct ModelNode {
@@ -17,7 +19,7 @@ namespace xe {
 		// TODO: Evaluate if adding the index directly improves useability
 	};
 
-	struct Model {
+	struct Model : Asset {
 		// NOTE: Nodes are kept sorted in DFS hierarchic dependent order
 		std::vector<ModelNode> nodes;
 		
@@ -36,6 +38,11 @@ namespace xe {
 	struct ModelComponent {
 		Model* model = nullptr;
 		bool wireframe = false;
+	};
+
+	struct ModelSerializer : AssetSerializer {
+		void serialize(Asset* asset) const override;
+		bool loadData(Asset** asset) const override;
 	};
 
 }

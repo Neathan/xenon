@@ -148,7 +148,7 @@ namespace xe {
 		loadVec4(shader, "baseColorFactor", material.pbrMetallicRoughness.baseColorFactor);
 
 		if (material.pbrMetallicRoughness.baseColorTexture) {
-			glBindTextureUnit((int)material.pbrMetallicRoughness.baseColorTexture->type, material.pbrMetallicRoughness.baseColorTexture->textureID);
+			glBindTextureUnit(0, material.pbrMetallicRoughness.baseColorTexture->textureID);
 			loadInt(shader, "usingAlbedoMap", true);
 		}
 		else {
@@ -159,7 +159,7 @@ namespace xe {
 		loadFloat(shader, "roughnessFactor", material.pbrMetallicRoughness.roughnessFactor);
 
 		if (material.pbrMetallicRoughness.metallicRoughnessTexture) {
-			glBindTextureUnit((int)material.pbrMetallicRoughness.metallicRoughnessTexture->type, material.pbrMetallicRoughness.metallicRoughnessTexture->textureID);
+			glBindTextureUnit(1, material.pbrMetallicRoughness.metallicRoughnessTexture->textureID);
 			loadInt(shader, "usingMetallicRoughnessMap", true);
 		}
 		else {
@@ -167,7 +167,7 @@ namespace xe {
 		}
 
 		if (material.normalTexture) {
-			glBindTextureUnit((int)material.normalTexture->type, material.normalTexture->textureID);
+			glBindTextureUnit(2, material.normalTexture->textureID);
 			loadInt(shader, "usingNormalMap", true);
 		}
 		else {
@@ -175,7 +175,7 @@ namespace xe {
 		}
 
 		if (material.occlusionTexture) {
-			glBindTextureUnit((int)material.occlusionTexture->type, material.occlusionTexture->textureID);
+			glBindTextureUnit(3, material.occlusionTexture->textureID);
 			loadInt(shader, "usingAOMap", true);
 		}
 		else {
@@ -183,7 +183,7 @@ namespace xe {
 		}
 
 		if (material.emissiveTexture) {
-			glBindTextureUnit((int)material.emissiveTexture->type, material.emissiveTexture->textureID);
+			glBindTextureUnit(4, material.emissiveTexture->textureID);
 			loadInt(shader, "usingEmissiveMap", true);
 		}
 		else {

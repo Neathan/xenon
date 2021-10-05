@@ -9,6 +9,8 @@
 #include "xenon/core/assert.h"
 #include "xenon/graphics/material.h"
 
+#include "xenon/core/asset_manager.h"
+
 namespace xe {
 
 	glm::mat4 getNodeTransform(const tinygltf::Node& node) {
@@ -31,9 +33,8 @@ namespace xe {
 	}
 
 	template<typename T>
-	std::shared_ptr<Texture> loadTextureIfExists(const tinygltf::Model& model, const T& info, TextureType type, const std::string& path) {
+	Texture* loadTextureIfExists(AssetManager* manager, const tinygltf::Model& model, const T& info, const std::string& path, bool srgb = false) {
 		if (info.index == -1) {
-			XE_LOG_TRACE_F("MODEL_LOADER: Model did not include a texture of type: {}", type);
 			return nullptr;
 		}
 
@@ -49,12 +50,12 @@ namespace xe {
 			textureParameters.wrapT = sampler.wrapT;
 		}
 
-		TextureFormat format = channelsToFormat(image.component, type == TextureType::ALBEDO);  // TODO: Check if this is the valid way to do sRGB 
+		TextureFormat format = channelsToFormat(image.component, srgb);  // TODO: Check if this is the valid way to do sRGB 
 
 		// TODO: Add multi-texture-coordinate support: info.texCoord
 		// TODO: Improve texture signature
-		std::string signature = TEXTURE_INTERNAL_SIGNATURE + std::to_string(info.index) + ":" + std::to_string((int)type) + ":" + path;
-		return loadTexture(signature, image.image.data(), image.width, image.height, image.component, type, format, textureParameters);
+		// std::string signature = TEXTURE_INTERNAL_SIGNATURE + std::to_string(info.index) + ":" + std::to_string((int)type) + ":" + path;
+		return createInternalTextureAsset(manager, path, std::to_string(info.index), image.image.data(), image.width, image.height, image.component, format, textureParameters);
 	}
 
 	size_t processPrimitives(const tinygltf::Model& model,
@@ -157,9 +158,11 @@ namespace xe {
 
 		if (!warn.empty()) {
 			XE_LOG_WARN_F("MODEL_LOADER: GLTF Warning: {}", warn);
+			return nullptr;
 		}
 		if (!err.empty()) {
 			XE_LOG_WARN_F("MODEL_LOADER: GLTF Error: {}", err);
+			return nullptr;
 		}
 
 		if (!result) {
@@ -184,22 +187,24 @@ namespace xe {
 		// TODO: Add support for multiple scenes
 		Model* model = new Model();
 
+		AssetManager* manager = getAssetManager();
+
 		// Process materials
 		for (const auto& pMaterial : gltfModel.materials) {
 			Material material;
 			material.name = pMaterial.name;
 
 			material.pbrMetallicRoughness.baseColorFactor = glm::make_vec4(pMaterial.pbrMetallicRoughness.baseColorFactor.data());
-			material.pbrMetallicRoughness.baseColorTexture = loadTextureIfExists<tinygltf::TextureInfo>(gltfModel, pMaterial.pbrMetallicRoughness.baseColorTexture, TextureType::ALBEDO, path);
+			material.pbrMetallicRoughness.baseColorTexture = loadTextureIfExists<tinygltf::TextureInfo>(manager, gltfModel, pMaterial.pbrMetallicRoughness.baseColorTexture, path, true);
 			material.pbrMetallicRoughness.metallicFactor = pMaterial.pbrMetallicRoughness.metallicFactor;
 			material.pbrMetallicRoughness.roughnessFactor = pMaterial.pbrMetallicRoughness.roughnessFactor;
-			material.pbrMetallicRoughness.metallicRoughnessTexture = loadTextureIfExists<tinygltf::TextureInfo>(gltfModel, pMaterial.pbrMetallicRoughness.metallicRoughnessTexture, TextureType::METALLIC_ROUGHNESS, path);
+			material.pbrMetallicRoughness.metallicRoughnessTexture = loadTextureIfExists<tinygltf::TextureInfo>(manager, gltfModel, pMaterial.pbrMetallicRoughness.metallicRoughnessTexture, path);
 
-			material.normalTexture = loadTextureIfExists<tinygltf::NormalTextureInfo>(gltfModel, pMaterial.normalTexture, TextureType::NORMAL, path);
+			material.normalTexture = loadTextureIfExists<tinygltf::NormalTextureInfo>(manager, gltfModel, pMaterial.normalTexture, path);
 
-			material.occlusionTexture = loadTextureIfExists<tinygltf::OcclusionTextureInfo>(gltfModel, pMaterial.occlusionTexture, TextureType::AO, path);
+			material.occlusionTexture = loadTextureIfExists<tinygltf::OcclusionTextureInfo>(manager, gltfModel, pMaterial.occlusionTexture, path);
 
-			material.emissiveTexture = loadTextureIfExists<tinygltf::TextureInfo>(gltfModel, pMaterial.emissiveTexture, TextureType::EMISSIVE, path);
+			material.emissiveTexture = loadTextureIfExists<tinygltf::TextureInfo>(manager, gltfModel, pMaterial.emissiveTexture, path);
 			material.emissiveFactor = glm::make_vec3(pMaterial.emissiveFactor.data());
 
 			if (pMaterial.alphaMode.compare("OPAQUE") == 0) {

@@ -12,10 +12,9 @@ namespace xe {
 
 	struct FramebufferAttachment {
 		GLenum target;
-		TextureType type;
 		TextureFormat format;
 		TextureParameters textureParams;
-		std::shared_ptr<Texture> texture = nullptr;
+		Texture* texture = nullptr;
 	};
 
 	enum class FramebufferStatus {

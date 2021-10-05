@@ -8,22 +8,14 @@
 #include "xenon/core/assert.h"
 #include "xenon/core/log.h"
 
-
 namespace xe {
 
 	//----------------------------------------
 	// SECTION: Texture
 	//----------------------------------------
 
-	static std::map<std::string, std::weak_ptr<Texture>> s_textureCache;
-
-	Texture::~Texture() {
-		// TODO: Fix de-construction issue
-		//glDeleteTextures(1, &textureID);
-	}
-
 	template<typename T>
-	std::shared_ptr<Texture> loadTextureInternal(const std::string& signature, const T* data, int width, int height, int channels, TextureType type, TextureFormat format, const TextureParameters& params) {
+	Texture* loadTextureInternal(const T* data, int width, int height, int channels, TextureFormat format, const TextureParameters& params) {
 		// Create GL texture
 		GLuint textureID;
 		glCreateTextures(GL_TEXTURE_2D, 1, &textureID);
@@ -36,45 +28,21 @@ namespace xe {
 		glTextureStorage2D(textureID, 1, getTextureFormatInternalFormat(format), width, height);
 		glTextureSubImage2D(textureID, 0, 0, 0, width, height, getTextureFormatBaseFormat(format), getTextureFormatDataType(format), data);
 
-		// Create and add to cache
-		std::shared_ptr<Texture> texture = std::make_shared<Texture>(Texture{ textureID, type, params, width, height, channels, format, signature });
-		s_textureCache.emplace(signature, texture);
-
-		return texture;
+		return new Texture{ AssetMetadata(), AssetRuntimeData(), textureID, params, width, height, channels, format };
 	}
 
-	std::shared_ptr<Texture> checkCache(const std::string& signature) {
-		if (s_textureCache.find(signature) != s_textureCache.end()) {
-			std::weak_ptr<Texture> cacheHit = s_textureCache.at(signature);
-			if (cacheHit.expired()) {
-				s_textureCache.erase(signature);
-			}
-			else {
-				XE_LOG_TRACE_F("TEXTURE CACHE: Found texture signature in cache: {}", signature);
-				return cacheHit.lock();
-			}
-		}
-		return nullptr;
-	}
-
-	std::shared_ptr<Texture> loadTexture(const std::string& path, TextureType type, TextureFormat format, const TextureParameters& params) {
-		// Check cache for texture
-		auto cache = checkCache(path);
-		if (cache) {
-			return cache;
-		}
-		
+	Texture* loadTexture(const std::string& path, TextureFormat format = TextureFormat::RGBA, const TextureParameters& params = TextureParameters{}) {
 		// Load texture data
 		int width, height, channels;
 		stbi_set_flip_vertically_on_load(true);
 
-		std::shared_ptr<Texture> texture;
+		Texture* texture;
 		if (!isTextureFormatFloatFormat(format)) {
 			unsigned char* data = stbi_load(path.c_str(), &width, &height, &channels, 0);
 			if (!data) {
 				return nullptr;
 			}
-			texture = loadTextureInternal(path, data, width, height, channels, type, format, params);
+			texture = loadTextureInternal(data, width, height, channels, format, params);
 			stbi_image_free(data);
 		}
 		else {
@@ -82,30 +50,20 @@ namespace xe {
 			if (!data) {
 				return nullptr;
 			}
-			texture = loadTextureInternal(path, data, width, height, channels, type, format, params);
+			texture = loadTextureInternal(data, width, height, channels, format, params);
 			stbi_image_free(data);
 		}
+		stbi_set_flip_vertically_on_load(false);
 
 		return texture;
 	}
 
-	std::shared_ptr<Texture> loadTexture(const std::string& signature, const unsigned char* data, int width, int height, int channels, TextureType type, TextureFormat format, const TextureParameters& params) {
-		// Check cache for texture
-		auto cache = checkCache(signature);
-		if (cache) {
-			return cache;
-		}
-		return loadTextureInternal(signature, data, width, height, channels, type, format, params);
+	Texture* loadTexture(const unsigned char* data, int width, int height, int channels, TextureFormat format = TextureFormat::RGBA, const TextureParameters& params = TextureParameters{}) {
+		return loadTextureInternal(data, width, height, channels, format, params);
 	}
 
-	std::shared_ptr<Texture> loadKTXTexture(const std::string& path, TextureType type, const TextureParameters& params) {
-		// Check cache for texture
-		auto cache = checkCache(path);
-		if (cache) {
-			return cache;
-		}
-
-		std::shared_ptr<Texture> texture;
+	Texture* loadKTXTexture(const std::string& path, const TextureParameters& params) {
+		Texture* texture;
 
 		ktxTexture* ktxTexture;
 		ktx_error_code_e result = ktxTexture_CreateFromNamedFile(path.c_str(), KTX_TEXTURE_CREATE_NO_FLAGS, &ktxTexture);
@@ -127,14 +85,14 @@ namespace xe {
 		glTextureParameteri(textureID, GL_TEXTURE_WRAP_T, params.wrapT);
 
 		// TODO: Extract texture metadata and include missing info in texture
-		texture = std::make_shared<Texture>(Texture{ textureID, type, TextureParameters(), (int)ktxTexture->baseWidth, (int)ktxTexture->baseHeight, 0, TextureFormat::UNKNOWN, path });
+		texture = new Texture{ AssetMetadata(), AssetRuntimeData(), textureID, TextureParameters(), (int)ktxTexture->baseWidth, (int)ktxTexture->baseHeight, 0, TextureFormat::UNKNOWN };
 
 		ktxTexture_Destroy(ktxTexture);
 
 		return texture;
 	}
 
-	std::shared_ptr<Texture> createEmptyTexture(int width, int height, TextureType type, TextureFormat format, const TextureParameters& params, int samples) {
+	Texture* createEmptyTexture(int width, int height, TextureFormat format, const TextureParameters& params, int samples) {
 		XE_ASSERT(samples >= 1);
 
 		GLuint textureID;
@@ -157,10 +115,10 @@ namespace xe {
 			glTextureStorage2DMultisample(textureID, samples, getTextureFormatInternalFormat(format), width, height, GL_FALSE);
 		}
 
-		return std::make_shared<Texture>(Texture{ textureID, type, params, width, height, 0, format, "uncached-texture" });;
+		return new Texture{ AssetMetadata(), AssetRuntimeData(), textureID, params, width, height, 0, format };
 	}
 
-	std::shared_ptr<Texture> createEmptyCubemapTexture(int resolution, TextureType cubemapType, TextureFormat format, const TextureParameters& params) {
+	Texture* createEmptyCubemapTexture(int resolution, TextureFormat format, const TextureParameters& params) {
 		GLuint textureID;
 		glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &textureID);
 
@@ -175,7 +133,7 @@ namespace xe {
 			glTextureSubImage3D(textureID, 0, 0, 0, face, resolution, resolution, 1, getTextureFormatBaseFormat(format), getTextureFormatDataType(format), nullptr);
 		}*/
 
-		return std::make_shared<Texture>(Texture{ textureID, cubemapType, params, resolution, resolution, 0, format, "cubemap-no-signature" });
+		return new Texture{ AssetMetadata(), AssetRuntimeData(), textureID, params, resolution, resolution, 0, format };
 	}
 
 
@@ -259,19 +217,32 @@ namespace xe {
 		return false;
 	}
 
+	//----------------------------------------
+	// SECTION: Texture asset functions
+	//----------------------------------------
 
-	void clearUnusedTextures() {
-		for (auto it = s_textureCache.cbegin(); it != s_textureCache.cend(); ) {
-			if (it->second.expired()) {
-				it = s_textureCache.erase(it);
-				continue;
-			}
-			++it;
-		}
+	Texture* createTextureAsset(AssetManager* manager, const std::string& path, const unsigned char* data, int width, int height, int channels, TextureFormat format, const TextureParameters& params) {
+		Texture* texture = loadTexture(data, width, height, channels, format, params);
+		Asset* asset = createAsset(manager, path, AssetType::Texture, UUID::None());
+		copyAssetMetaRuntimeData(asset, texture);
+		return texture;
 	}
 
-	void clearTextureCache() {
-		s_textureCache.clear();
+	Texture* createInternalTextureAsset(AssetManager* manager, const std::string& hostPath, const std::string& internalPath, const unsigned char* data, int width, int height, int channels, TextureFormat format, const TextureParameters& params) {
+		return createTextureAsset(manager, XE_HOST_PATH_BEGIN + hostPath + XE_HOST_PATH_END + internalPath, data, width, height, channels, format, params);
+	}
+
+
+	void TextureSerializer::serialize(Asset* asset) const {
+		// TODO: Implement
+		XE_LOG_ERROR("Texture serialization is not yet implemented.");
+	}
+
+	bool TextureSerializer::loadData(Asset** asset) const {
+		const Asset* sourceAsset = *asset;
+		*asset = loadTexture((*asset)->metadata.path);
+		copyAssetMetaRuntimeData(sourceAsset, *asset);
+		return true;
 	}
 
 }

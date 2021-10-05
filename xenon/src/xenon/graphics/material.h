@@ -7,14 +7,16 @@
 
 #include "xenon/graphics/texture.h"
 
+#include "xenon/core/asset.h"
+
 namespace xe {
 
 	struct PBRMetallicRoughness {
 		glm::vec4 baseColorFactor = glm::vec4(1.0f);
-		std::shared_ptr<Texture> baseColorTexture = nullptr;
+		Texture* baseColorTexture = nullptr;
 		float metallicFactor = 1.0f;
 		float roughnessFactor = 1.0f;
-		std::shared_ptr<Texture> metallicRoughnessTexture = nullptr;
+		Texture* metallicRoughnessTexture = nullptr;
 		// extension
 		// extras
 	};
@@ -26,14 +28,14 @@ namespace xe {
 		BLEND = 2
 	};
 
-	struct Material {
+	struct Material : Asset {
 		std::string name;
 		// extensions
 		// extras
 		PBRMetallicRoughness pbrMetallicRoughness;
-		std::shared_ptr<Texture> normalTexture = nullptr;
-		std::shared_ptr<Texture> occlusionTexture = nullptr;
-		std::shared_ptr<Texture> emissiveTexture = nullptr;
+		Texture* normalTexture = nullptr;
+		Texture* occlusionTexture = nullptr;
+		Texture* emissiveTexture = nullptr;
 		glm::vec3 emissiveFactor = glm::vec3(0.0f);
 		AlphaMode alphaMode = AlphaMode::OPAQUE_IGNORE;
 		float alphaCutoff = 0.5f;

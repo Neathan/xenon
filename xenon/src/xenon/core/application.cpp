@@ -64,9 +64,11 @@ namespace xe {
 		}
 	}
 
+
 	bool shouldApplicationClose(Application* application) {
 		return glfwWindowShouldClose(application->window);
 	}
+
 
 	Timestep updateApplication(Application* application) {
 		// Pre-input flag
@@ -91,6 +93,11 @@ namespace xe {
 
 	void swapBuffers(Application* application) {
 		glfwSwapBuffers(application->window);
+	}
+
+
+	void maximizeApplication(Application* application) {
+		glfwMaximizeWindow(application->window);
 	}
 
 }

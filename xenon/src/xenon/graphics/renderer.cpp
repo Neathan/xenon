@@ -15,7 +15,7 @@ namespace xe {
 	//----------------------------------------
 
 	Renderer* createRenderer(Shader* shader, Shader* envShader) {
-		std::shared_ptr<Texture> brdfLUT = generateBRDFLUT(512, 512);
+		Texture* brdfLUT = generateBRDFLUT(512, 512);
 
 		return new Renderer{ shader, envShader, brdfLUT };
 	}

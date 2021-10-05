@@ -10,16 +10,19 @@
 
 #include "ui/scene_hierarchy.h"
 #include "ui/inspector.h"
+#include "ui/asset_viewer.h"
 
 namespace xe {
 
-	EditorData* createEditor() {
+	EditorData* createEditor(const std::string& projectFolder) {
 		EditorData* editor = new EditorData();
 
+		editor->assetManager = createAssetManager(projectFolder);
+
 		// Create PBR renderer and shader
-		editor->pbrShader = loadShader("assets/pbr.vert", "assets/pbr.frag");
-		editor->envShader = loadShader("assets/env.vert", "assets/env.frag");
-		editor->gridShader = loadShader("assets/grid.vert", "assets/grid.frag");
+		editor->pbrShader = loadShader("assets/shaders/pbr.vert", "assets/shaders/pbr.frag");
+		editor->envShader = loadShader("assets/shaders/env.vert", "assets/shaders/env.frag");
+		editor->gridShader = loadShader("assets/shaders/grid.vert", "assets/shaders/grid.frag");
 		editor->renderer = createRenderer(editor->pbrShader, editor->envShader);
 
 		/* NOTE: Only needed for runtime rendering. Only included for reference.
@@ -47,6 +50,9 @@ namespace xe {
 		// Camera
 		editor->camera = createOrbitCamera(1920, 1080);
 
+		// Asset viewer
+		editor->assetViewerDirectory = getAsset<Directory>(editor->assetManager, projectFolder, false);
+
 		// Scene
 		editor->scene = createScene();
 
@@ -66,13 +72,20 @@ namespace xe {
 		destroyShader(data->envShader);
 		destroyShader(data->pbrShader);
 
+		destroyAssetManager(data->assetManager);
+
 		delete data;
 	}
 
 
 	float drawMenuBar(EditorData* data) {
 		float menuHeight = 0;
+		// Push style to make menu seamless
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);
 		if (ImGui::BeginMainMenuBar()) {
+			// Pop style
+			ImGui::PopStyleVar();
+
 			if (ImGui::BeginMenu("File")) {
 				ImGui::EndMenu();
 			}
@@ -95,17 +108,29 @@ namespace xe {
 			| ImGuiWindowFlags_NoBringToFrontOnFocus
 			| ImGuiWindowFlags_NoNavFocus;
 
+		// Push style
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
+		ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 0);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+
 		if (ImGui::Begin("ApplicationRoot", nullptr, flags)) {
+			ImGui::PopStyleVar(3); // Pop style padding
+
 			ImGuiID applicationRootDockspaceID = ImGui::GetID("ApplicationRootDockspace");
 			ImGui::DockSpace(applicationRootDockspaceID);
 			// TODO: Build UI
 		}
 		ImGui::End();
+
+		// Pop style rounding
+		ImGui::PopStyleVar(2);
 	}
 
 	void drawGizmo(EditorData* data) {
 		if (data->selectedEntityID.isValid()) {
-			float snap = 0.1f;
+			ImGuizmo::SetDrawlist(ImGui::GetWindowDrawList());
 			ImGuizmo::SetRect(data->sceneViewportPos.x, data->sceneViewportPos.y, data->sceneViewportSize.x, data->sceneViewportSize.y);
 			ImGuizmo::SetGizmoSizeClipSpace(0.05f * 1080.0f / data->sceneViewportSize.y);
 
@@ -114,28 +139,59 @@ namespace xe {
 			TransformComponent& selectedTransform = selectedEntity.getComponent<TransformComponent>();
 			glm::mat4 worldMatrix = getWorldMatrix(selectedEntity);
 
-			BoundingBox bounds = BoundingBox{ glm::vec3(-1, -1, -1), glm::vec3(1, 1, 1) };
-			if (selectedEntity.hasComponent<ModelComponent>()) {
-				ModelComponent& modelComponent = selectedEntity.getComponent<ModelComponent>();
-				if (modelComponent.model) {
-					bounds = modelComponent.model->bounds;
+			if (data->sceneViewportHovered) {
+				if (Input::isKeyPressed(GLFW_KEY_Q)) {
+					data->editOperation = ImGuizmo::OPERATION::BOUNDS;
+				}
+				else if(Input::isKeyPressed(GLFW_KEY_W)) {
+					data->editOperation = ImGuizmo::OPERATION::TRANSLATE;
+				}
+				else if (Input::isKeyPressed(GLFW_KEY_E)) {
+					data->editOperation = ImGuizmo::OPERATION::ROTATE;
+				}
+				else if (Input::isKeyPressed(GLFW_KEY_R)) {
+					data->editOperation = ImGuizmo::OPERATION::SCALE;
 				}
 			}
 
-			bounds = bounds;
 			glm::mat4 matrixBefore = worldMatrix;
 
+			BoundingBox bounds;
+			if (data->editOperation == ImGuizmo::OPERATION::BOUNDS) {
+				bounds = BoundingBox{ glm::vec3(-.5f, -.5f, -.5f), glm::vec3(.5f, .5f, .5f) };
+				Entity entity = getEntityFromID(data->scene, data->selectedEntityID);
+				if (entity.hasComponent<ModelComponent>()) {
+					ModelComponent& modelComponent = entity.getComponent<ModelComponent>();
+					if (modelComponent.model) {
+						bounds = modelComponent.model->bounds;
+					}
+				}
+			}
+
+			bool shouldSnap = Input::isKeyHeld(GLFW_KEY_LEFT_SHIFT);
+			glm::vec3 snap = glm::vec3(0.1f);
+			if (data->editOperation == ImGuizmo::OPERATION::ROTATE) {
+				snap = glm::vec3(5.0f);
+			}
+
 			ImGuizmo::Manipulate(glm::value_ptr(data->camera.inverseTransform), glm::value_ptr(data->camera.projection),
-				data->editOperation, data->editMode, glm::value_ptr(worldMatrix), NULL, Input::isKeyHeld(GLFW_KEY_LEFT_SHIFT) ? &snap : NULL, (float*)&bounds);
+				data->editOperation, data->editMode, glm::value_ptr(worldMatrix), nullptr, shouldSnap ? glm::value_ptr(snap) : nullptr, data->editOperation == ImGuizmo::OPERATION::BOUNDS ? (float*)&bounds : nullptr);
 
 			// TODO: Replace when this open issue has been solved: https://github.com/CedricGuillemet/ImGuizmo/issues/201
 			if (worldMatrix != matrixBefore) {
 				selectedTransform.matrix = toLocalMatrix(worldMatrix, selectedEntity);
 			}
+
+			if (Input::isKeyPressed(GLFW_KEY_DELETE)) {
+				removeEntity(data->scene, data->selectedEntityID);
+				data->selectedEntityID = UUID::None();
+			}
 		}
 	}
 
 	void drawViewport(EditorData* data) {
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+
 		if (ImGui::Begin("Scene")) {
 			// Check if windows size changed
 			ImVec2 size = ImGui::GetContentRegionAvail();
@@ -160,9 +216,9 @@ namespace xe {
 
 			// Picking
 			ImVec2 mp = ImGui::GetMousePos();
-			bool hovered = data->sceneViewportPos.x <= mp.x && mp.x <= viewportEnd.x && data->sceneViewportPos.y <= mp.y && mp.y <= viewportEnd.y;
+			data->sceneViewportHovered = mp.x >= data->sceneViewportPos.x && mp.x < viewportEnd.x && mp.y >= data->sceneViewportPos.y && mp.y < viewportEnd.y;
 
-			if (hovered && !ImGuizmo::IsUsing() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+			if (data->sceneViewportHovered && !ImGuizmo::IsUsing() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
 				bindFramebuffer(*data->displayedFramebuffer);
 				bindShader(*data->renderer->shader);
 				uint32_t objectID;
@@ -170,19 +226,23 @@ namespace xe {
 				glReadPixels(mp.x - data->sceneViewportPos.x, data->sceneViewportSize.y - (mp.y - data->sceneViewportPos.y), 1, 1, GL_RED_INTEGER, GL_UNSIGNED_INT, &objectID);
 				glReadBuffer(GL_COLOR_ATTACHMENT0);
 				data->selectedEntityID = objectID;
+				data->selectedAsset = nullptr;
 				unbindShader();
 				unbindFramebuffer();
 			}
 		}
 		ImGui::End();
+
+		ImGui::PopStyleVar();
 	}
 
 	void drawEditor(EditorData* data) {
 		float menuHeight = drawMenuBar(data);
 		drawApplication(data, menuHeight);
-		drawViewport(data);
 		drawHierarchy(data->scene, data->selectedEntityID);
-		drawInspector(data->scene, data->selectedEntityID);
+		drawInspector(data);
+		drawAssetViewer(data);
+		drawViewport(data);
 	}
 
 }

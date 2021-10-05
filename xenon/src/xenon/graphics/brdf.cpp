@@ -5,14 +5,14 @@
 
 namespace xe {
 
-	std::shared_ptr<Texture> generateBRDFLUT(unsigned int width, unsigned int height) {
+	Texture* generateBRDFLUT(unsigned int width, unsigned int height) {
 		// Create shader, framebuffer and load model.
-		Shader* shader = loadShader("assets/brdf.vert", "assets/brdf.frag");
+		Shader* shader = loadShader("assets/shaders/brdf.vert", "assets/shaders/brdf.frag");
 		Model* plane = generatePlaneModel(1, 1, GeneratorDirection::FRONT);
 		Framebuffer* framebuffer = createFramebuffer(width, height);
 
 		TextureParameters params = TextureParameters{ GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE };
-		framebuffer->attachments.insert({ GL_COLOR_ATTACHMENT0, FramebufferAttachment{ GL_COLOR_ATTACHMENT0, TextureType::BRDF_LUT, TextureFormat::RGB_FLOAT, params } });
+		framebuffer->attachments.insert({ GL_COLOR_ATTACHMENT0, FramebufferAttachment{ GL_COLOR_ATTACHMENT0, TextureFormat::RGB_FLOAT, params } });
 
 		buildFramebuffer(framebuffer);
 
@@ -36,7 +36,7 @@ namespace xe {
 		glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
 
 		// Extract framebuffer texture
-		std::shared_ptr<Texture> texture = framebuffer->attachments.at(GL_COLOR_ATTACHMENT0).texture;
+		Texture* texture = framebuffer->attachments.at(GL_COLOR_ATTACHMENT0).texture;
 
 		// Delete only the framebuffer, not the texture rendered to
 		glDeleteFramebuffers(1, &framebuffer->frambufferID);

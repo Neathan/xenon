@@ -37,7 +37,7 @@ add_executable(xenon_editor
     "src/ui/editor.h"
     "src/ui/editor.cpp"
     "src/ui/imgui_operators.h"
- "src/ui/theme.h" "src/ui/theme.cpp" "src/ui/inspector.h" "src/ui/inspector.cpp" "src/ui/imgui_components.h" "src/ui/imgui_components.cpp")
+ "src/ui/theme.h" "src/ui/theme.cpp" "src/ui/inspector.h" "src/ui/inspector.cpp" "src/ui/imgui_components.h" "src/ui/imgui_components.cpp" "src/ui/asset_viewer.h" "src/ui/asset_viewer.cpp")
 
 target_include_directories(xenon_editor PUBLIC src/)
 target_link_libraries(xenon_editor PUBLIC xenon)

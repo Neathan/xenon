@@ -4,6 +4,6 @@
 
 namespace xe {
 
-	std::shared_ptr<Texture> generateBRDFLUT(unsigned int width, unsigned int height);
+	Texture* generateBRDFLUT(unsigned int width, unsigned int height);
 
 }

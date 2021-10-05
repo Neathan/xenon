@@ -44,9 +44,9 @@ namespace xe {
 
 		for (auto& [target, attachment] : framebuffer->attachments) {
 			if (attachment.texture) {
-				XE_LOG_WARN_F("FRAMEBUFFER: Framebuffer texture already exists, overwriting framebuffer texture: {}", attachment.texture->sourcePath);
+				XE_LOG_WARN_F("FRAMEBUFFER: Framebuffer texture already exists, overwriting framebuffer texture: {}", attachment.texture->textureID);
 			}
-			attachment.texture = createEmptyTexture(framebuffer->width, framebuffer->height, attachment.type, attachment.format, attachment.textureParams, framebuffer->samples);
+			attachment.texture = createEmptyTexture(framebuffer->width, framebuffer->height, attachment.format, attachment.textureParams, framebuffer->samples);
 			glNamedFramebufferTexture(framebuffer->frambufferID, attachment.target, attachment.texture->textureID, 0);
 
 			if (attachment.target != GL_DEPTH_ATTACHMENT && attachment.target != GL_STENCIL_ATTACHMENT) {
@@ -129,14 +129,14 @@ namespace xe {
 
 	FramebufferAttachmentPair createDefaultFramebufferAttachment(DefaultAttachmentType type, GLuint target) {
 		if (type == DefaultAttachmentType::COLOR) {
-			return { GL_COLOR_ATTACHMENT0 + target, FramebufferAttachment{ GL_COLOR_ATTACHMENT0 + target, TextureType::GENERIC_RGB, TextureFormat::RGB, TextureParameters{ GL_LINEAR, GL_LINEAR } } };
+			return { GL_COLOR_ATTACHMENT0 + target, FramebufferAttachment{ GL_COLOR_ATTACHMENT0 + target, TextureFormat::RGB, TextureParameters{ GL_LINEAR, GL_LINEAR } } };
 		}
 		else if (type == DefaultAttachmentType::DEPTH) {
 			XE_ASSERT(target == 0);
-			return { GL_DEPTH_ATTACHMENT, FramebufferAttachment{ GL_DEPTH_ATTACHMENT, TextureType::GENERIC_FLOAT, TextureFormat::DEPTH, TextureParameters{ GL_NEAREST, GL_NEAREST } } };
+			return { GL_DEPTH_ATTACHMENT, FramebufferAttachment{ GL_DEPTH_ATTACHMENT, TextureFormat::DEPTH, TextureParameters{ GL_NEAREST, GL_NEAREST } } };
 		}
 		else { // type == DefaultAttachmentType::INTEGER
-			return { GL_COLOR_ATTACHMENT0 + target, FramebufferAttachment{ GL_COLOR_ATTACHMENT0 + target, TextureType::GENERIC_RED, TextureFormat::RED, TextureParameters{ GL_NEAREST, GL_NEAREST } } };
+			return { GL_COLOR_ATTACHMENT0 + target, FramebufferAttachment{ GL_COLOR_ATTACHMENT0 + target, TextureFormat::RED, TextureParameters{ GL_NEAREST, GL_NEAREST } } };
 		}
 	}
 

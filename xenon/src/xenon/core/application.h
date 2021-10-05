@@ -35,4 +35,7 @@ namespace xe {
 	Timestep updateApplication(Application* application);
 	void swapBuffers(Application* application);
 
+	// Utility
+	void maximizeApplication(Application* application);
+
 }

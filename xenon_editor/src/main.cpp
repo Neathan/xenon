@@ -20,6 +20,7 @@ int main() {
 	XE_SET_LOG_LEVEL(XE_LOG_LEVEL_TRACE);
 
 	Application* application = createApplication("Hello, world!", 1920, 1080);
+	maximizeApplication(application);
 
 	//----------------------------------------
 	// SECTION: ImGui setup
@@ -32,6 +33,10 @@ int main() {
 	ImGui::StyleColorsDark();
 	setTheme();
 
+	// Load font
+	ImFontConfig fontConfig; fontConfig.OversampleH = 2; fontConfig.OversampleV = 2, fontConfig.GlyphExtraSpacing.x = 0.15f;
+	io.Fonts->AddFontFromFileTTF("assets/fonts/Roboto-Regular.ttf", 16.0f, &fontConfig);
+
 	ImGui_ImplGlfw_InitForOpenGL(application->window, true);
 	ImGui_ImplOpenGL3_Init("#version 460 core");
 
@@ -39,7 +44,7 @@ int main() {
 	// SECTION: Editor
 	//----------------------------------------
 
-	EditorData* editorData = createEditor();
+	EditorData* editorData = createEditor("assets/");
 
 	//----------------------------------------
 	// SECTION: Load environment
@@ -61,21 +66,21 @@ int main() {
 	TextureParameters textureParams = TextureParameters{ GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE };
 	TextureParameters radianceParams = TextureParameters{ GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE };
 	Environment environment;
-	environment.environmentCubemap = loadKTXTexture("assets/output_skybox.ktx", TextureType::IRRADIANCE_CUBEMAP, textureParams);
-	environment.irradianceMap = loadKTXTexture("assets/output_iem.ktx", TextureType::IRRADIANCE_CUBEMAP, textureParams);
-	environment.radianceMap = loadKTXTexture("assets/output_pmrem.ktx", TextureType::RADIANCE_CUBEMAP, radianceParams);
+	environment.environmentCubemap = loadKTXTexture("assets/environments/output_skybox.ktx", textureParams);
+	environment.irradianceMap = loadKTXTexture("assets/environments/output_iem.ktx", textureParams);
+	environment.radianceMap = loadKTXTexture("assets/environments/output_pmrem.ktx", radianceParams);
 	environments.push_back(EnvironmentAsset{ "Meadow" , environment, true });
 
 	Environment darkEnv;
-	darkEnv.environmentCubemap = loadKTXTexture("assets/dark_skybox.ktx", TextureType::IRRADIANCE_CUBEMAP, textureParams);
-	darkEnv.irradianceMap = loadKTXTexture("assets/dark_iem.ktx", TextureType::IRRADIANCE_CUBEMAP, textureParams);
-	darkEnv.radianceMap = loadKTXTexture("assets/dark_pmrem.ktx", TextureType::RADIANCE_CUBEMAP, radianceParams);
+	darkEnv.environmentCubemap = loadKTXTexture("assets/environments/dark_skybox.ktx", textureParams);
+	darkEnv.irradianceMap = loadKTXTexture("assets/environments/dark_iem.ktx", textureParams);
+	darkEnv.radianceMap = loadKTXTexture("assets/environments/dark_pmrem.ktx", radianceParams);
 	environments.push_back(EnvironmentAsset{ "Dark" , darkEnv, true });
 
 	Environment nightEnv;
-	nightEnv.environmentCubemap = loadKTXTexture("assets/night_skybox.ktx", TextureType::IRRADIANCE_CUBEMAP, textureParams);
-	nightEnv.irradianceMap = loadKTXTexture("assets/night_iem.ktx", TextureType::IRRADIANCE_CUBEMAP, textureParams);
-	nightEnv.radianceMap = loadKTXTexture("assets/night_pmrem.ktx", TextureType::RADIANCE_CUBEMAP, radianceParams);
+	nightEnv.environmentCubemap = loadKTXTexture("assets/environments/night_skybox.ktx", textureParams);
+	nightEnv.irradianceMap = loadKTXTexture("assets/environments/night_iem.ktx", textureParams);
+	nightEnv.radianceMap = loadKTXTexture("assets/environments/night_pmrem.ktx", radianceParams);
 	environments.push_back(EnvironmentAsset{ "Night" , darkEnv, true });
 
 
@@ -100,10 +105,13 @@ int main() {
 
 		if (Input::isKeyPressed(GLFW_KEY_ESCAPE)) {
 			editorData->selectedEntityID = UUID::None();
+			editorData->selectedAsset = nullptr;
 		}
 
 		// Camera
-		updateOrbitCamera(editorData->camera, ts);
+		if (editorData->sceneViewportHovered) {
+			updateOrbitCamera(editorData->camera, ts);
+		}
 
 		//----------------------------------------
 		// SECTION: Render
@@ -115,7 +123,7 @@ int main() {
 		// TODO: Make this nicer
 		// Disable rendering to objectID attachment
 		glNamedFramebufferDrawBuffer(editorData->framebuffer->frambufferID, GL_COLOR_ATTACHMENT0);
-		renderEnvironment(editorData->renderer, environments[currentEnvironment].environment, editorData->camera);
+		//renderEnvironment(editorData->renderer, environments[currentEnvironment].environment, editorData->camera);
 		renderGrid(editorData->gridShader, editorData->gridModel, editorData->camera);
 		// Re-enable rendering to objectID attachemtn
 		glNamedFramebufferDrawBuffers(editorData->framebuffer->frambufferID, editorData->framebuffer->colorBuffers.size(), editorData->framebuffer->colorBuffers.data());
@@ -135,10 +143,13 @@ int main() {
 
 		drawEditor(editorData);
 
+		ImGui::ShowDemoWindow();
+
 		//----------------------------------------
 		// SECTION: Test components (components without a proper home yet)
 		//----------------------------------------
 
+		/*
 		// Environment selector
 		if (ImGui::Begin("Environment")) {
 			for (size_t i = 0; i < environments.size(); ++i) {
@@ -152,18 +163,7 @@ int main() {
 			}
 		}
 		ImGui::End();
-
-		// Load model entity
-		if (ImGui::Begin("Load model")) {
-			static std::string modelPath = "";
-			ImGui::InputText("Path", &modelPath);
-			if (ImGui::Button("Create entity")) {
-				Entity entity = createEntity(editorData->scene);
-				Model* model = loadModel(modelPath);
-				entity.addComponent<ModelComponent>(model);
-			}
-		}
-		ImGui::End();
+		*/
 
 		//----------------------------------------
 		// SECTION: Render UI

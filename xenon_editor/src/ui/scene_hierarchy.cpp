@@ -33,7 +33,7 @@ namespace xe {
 			if (ImGui::MenuItem("Sphere")) {
 				Entity entity = createEntity(scene, "Sphere");
 				entity.getComponent<TransformComponent>().parent = contextEntity;
-				entity.addComponent<ModelComponent>(loadModel("assets/0.1.sphere.glb"));
+				entity.addComponent<ModelComponent>(loadModel("assets/models/0.1.sphere.glb"));
 				selectedEntityID = entity.getComponent<IdentityComponent>().uuid;
 			}
 			if (ImGui::MenuItem("Light")) {
@@ -109,6 +109,9 @@ namespace xe {
 	}
 
 	void drawHierarchy(Scene* scene, UUID& selectedItem) {
+		// Push style color so selected item is visible
+		ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.25f, 0.25f, 0.25f, 1.00f));
+
 		if (ImGui::Begin("Scene heirarchy")) {
 			auto view = scene->registry.view<IdentityComponent, TransformComponent>();
 
@@ -161,6 +164,8 @@ namespace xe {
 			}
 		}
 		ImGui::End();
+
+		ImGui::PopStyleColor();
 	}
 
 }

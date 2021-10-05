@@ -5,9 +5,9 @@
 namespace xe {
 
 	struct Environment {
-		std::shared_ptr<Texture> environmentCubemap = nullptr;
-		std::shared_ptr<Texture> irradianceMap = nullptr;
-		std::shared_ptr<Texture> radianceMap = nullptr;
+		Texture* environmentCubemap = nullptr;
+		Texture* irradianceMap = nullptr;
+		Texture* radianceMap = nullptr;
 	};
 
 }

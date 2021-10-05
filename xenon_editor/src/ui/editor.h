@@ -9,6 +9,9 @@
 namespace xe {
 
 	struct EditorData {
+		// SECTION: Assets (initialized)
+		AssetManager* assetManager;
+
 		// SECTION: Rendering (initialized)
 		Shader* pbrShader = nullptr;
 		Shader* envShader = nullptr;
@@ -24,20 +27,24 @@ namespace xe {
 		OrbitCamera camera;
 		Scene* scene = nullptr; // TODO: Make runtime determined
 
+		// SECTION: Asset viewer (initialized)
+		Directory* assetViewerDirectory = nullptr;
+		Asset* selectedAsset = nullptr;
+
 		// SECTION: Viewport (runtime)
 		ImVec2 sceneViewportPos;
 		ImVec2 sceneViewportSize;
 		bool sceneViewportSizeChanged = false;
+		bool sceneViewportHovered = false;
 		
 		// SECTION: Editing (runtime)
 		UUID selectedEntityID = UUID::None();
 		ImGuizmo::MODE editMode = ImGuizmo::MODE::LOCAL;
 		ImGuizmo::OPERATION editOperation = ImGuizmo::OPERATION::TRANSLATE;
 
-
 	};
 
-	EditorData* createEditor();
+	EditorData* createEditor(const std::string& projectFolder);
 	void destroyEditor(EditorData* data);
 
 	void drawEditor(EditorData* data);
