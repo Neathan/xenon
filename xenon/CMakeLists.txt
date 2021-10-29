@@ -25,6 +25,12 @@ add_library(xenon STATIC
 	"src/xenon/core/input.h"
 	"src/xenon/core/log.h"
 	"src/xenon/core/time.h"
+	"src/xenon/core/uuid.cpp"
+	"src/xenon/core/uuid.h"
+	"src/xenon/core/asset.h"
+	"src/xenon/core/asset_manager.h"
+	"src/xenon/core/asset.cpp"
+	"src/xenon/core/asset_manager.cpp"
 	"src/xenon/graphics/camera.h"
 	"src/xenon/graphics/framebuffer.cpp"
 	"src/xenon/graphics/framebuffer.h"
@@ -43,19 +49,14 @@ add_library(xenon STATIC
 	"src/xenon/graphics/material.h"
 	"src/xenon/graphics/texture.h"
 	"src/xenon/graphics/texture.cpp"
-	"src/xenon/scene/scene.h"
-	"src/xenon/core/uuid.cpp"
-	"src/xenon/core/uuid.h"
-	"src/xenon/scene/scene.cpp"
 	"src/xenon/graphics/light.h"
-	
 	"src/xenon/graphics/environment.h"
-	
 	"src/xenon/graphics/brdf.h"
 	"src/xenon/graphics/brdf.cpp"
-	"src/xenon/core/asset.h"
-	"src/xenon/core/asset_manager.h"
- "src/xenon/core/asset.cpp" "src/xenon/core/asset_manager.cpp")
+	"src/xenon/scene/scene.h"
+	"src/xenon/scene/scene.cpp"
+	"src/xenon/scripting/script.h"
+)
 
 
 target_compile_definitions(xenon PUBLIC GLFW_INCLUDE_NONE)
