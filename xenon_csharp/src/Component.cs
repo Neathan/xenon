@@ -16,7 +16,6 @@ namespace Xenon {
 				GetTransform_Native(entity.id, out Transform result);
 				return result;
 			}
-
 			set {
 				SetTransform_Native(entity.id, ref value);
 			}
@@ -27,7 +26,6 @@ namespace Xenon {
 				GetPosition_Native(entity.id, out Vector3 result);
 				return result;
 			}
-
 			set {
 				SetPosition_Native(entity.id, ref value);
 			}
@@ -38,7 +36,6 @@ namespace Xenon {
 				GetRotation_Native(entity.id, out Vector3 result);
 				return result;
 			}
-
 			set {
 				SetRotation_Native(entity.id, ref value);
 			}
@@ -49,7 +46,6 @@ namespace Xenon {
 				GetScale_Native(entity.id, out Vector3 result);
 				return result;
 			}
-
 			set {
 				SetScale_Native(entity.id, ref value);
 			}
@@ -78,6 +74,20 @@ namespace Xenon {
 	}
 
 	public class PointLightComponent : Component {
-		// TODO: Implement
+		public Vector3 color {
+			get {
+				GetColor_Native(entity.id, out Vector3 result);
+				return result;
+			}
+			set {
+				SetColor_Native(entity.id, ref value);
+			}
+		}
+
+		[MethodImpl(MethodImplOptions.InternalCall)]
+		internal static extern void GetColor_Native(ulong entityID, out Vector3 outColor);
+
+		[MethodImpl(MethodImplOptions.InternalCall)]
+		internal static extern void SetColor_Native(ulong entityID, ref Vector3 inColor);
 	}
 }

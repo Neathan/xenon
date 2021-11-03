@@ -646,12 +646,18 @@ namespace xe {
 	}
 
 
+	//---------------------------------------------------------------
+	// [SUB-SECTION] Transform internals
+	//---------------------------------------------------------------
+
 	void transformComponentGetTransform(uint64_t entityID, TransformComponent* outTransform) {
+		// TODO: This should not currently work, fix that.
 		Entity entity = getEntityFromID(s_activeContext->scene, entityID);
 		*outTransform = entity.getComponent<TransformComponent>();
 	}
 
 	void transformComponentSetTransform(uint64_t entityID, TransformComponent* inTransform) {
+		// TODO: This should not currently work, fix that.
 		Entity entity = getEntityFromID(s_activeContext->scene, entityID);
 		entity.getComponent<TransformComponent>() = *inTransform;
 	}
@@ -686,6 +692,25 @@ namespace xe {
 		setTransformScale(entity.getComponent<TransformComponent>(), *inScale);
 	}
 
+	//---------------------------------------------------------------
+	// [SUB-SECTION] Point light internals
+	//---------------------------------------------------------------
+
+	void pointLightComponentGetColor(uint64_t entityID, glm::vec3* outColor) {
+		Entity entity = getEntityFromID(s_activeContext->scene, entityID);
+		*outColor = entity.getComponent<PointLightComponent>().color;
+	}
+
+	void pointLightComponentSetColor(uint64_t entityID, glm::vec3* inColor) {
+		Entity entity = getEntityFromID(s_activeContext->scene, entityID);
+		entity.getComponent<PointLightComponent>().color = *inColor;
+	}
+
+	//---------------------------------------------------------------
+	// [SUB-SECTION] Attachment
+	//---------------------------------------------------------------
+
+
 	#define COMPONENT_REGISTER_TYPE_TEMPLATE(Type, context, Namespace) { \
 		MonoType* type = mono_reflection_type_from_name("Xenon." #Type, context->coreAssemblyImage); \
 		if (type) { \
@@ -718,6 +743,9 @@ namespace xe {
 		mono_add_internal_call("Xenon.TransformComponent::SetRotation_Native", transformComponentSetRotation);
 		mono_add_internal_call("Xenon.TransformComponent::GetScale_Native", transformComponentGetScale);
 		mono_add_internal_call("Xenon.TransformComponent::SetScale_Native", transformComponentSetScale);
+
+		mono_add_internal_call("Xenon.PointLightComponent::GetColor_Native", pointLightComponentGetColor);
+		mono_add_internal_call("Xenon.PointLightComponent::SetColor_Native", pointLightComponentSetColor);
 	}
 
 

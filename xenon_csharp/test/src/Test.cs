@@ -16,7 +16,8 @@ namespace TestScripts {
 
 		public void Start() {
 			Console.WriteLine("Start called!");
-			CreateComponent<PointLightComponent>();
+			PointLightComponent light = CreateComponent<PointLightComponent>();
+			light.color = new Vector3(10, 10, 10);
 		}
 
 		public void Update(float delta) {
