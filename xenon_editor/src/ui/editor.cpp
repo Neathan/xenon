@@ -31,14 +31,14 @@ namespace xe {
 		FramebufferRenderer* framebufferRenderer = createFramebufferRenderer(framebufferShader);
 		*/
 
-		// Create framebuffer to render to (multisampled)
+		// Create framebuffer to render to (multi sampled)
 		editor->framebuffer = createFramebuffer(1920, 1080, 16);
 		editor->framebuffer->attachments.insert(createDefaultFramebufferAttachment(DefaultAttachmentType::COLOR, 0));
 		editor->framebuffer->attachments.insert(createDefaultFramebufferAttachment(DefaultAttachmentType::DEPTH, 0));
 		editor->framebuffer->attachments.insert(createDefaultFramebufferAttachment(DefaultAttachmentType::INTEGER, 1));
 		buildFramebuffer(editor->framebuffer);
 
-		// Create framebuffer to blit to (resolved multisample)
+		// Create framebuffer to blit to (resolved multi sample)
 		editor->displayedFramebuffer = createFramebuffer(1920, 1080, 1); // No AA
 		editor->displayedFramebuffer->attachments.insert(createDefaultFramebufferAttachment(DefaultAttachmentType::COLOR, 0));
 		editor->displayedFramebuffer->attachments.insert(createDefaultFramebufferAttachment(DefaultAttachmentType::INTEGER, 1));
@@ -50,17 +50,28 @@ namespace xe {
 		// Camera
 		editor->camera = createOrbitCamera(1920, 1080);
 
-		// Asset viewer
-		editor->assetViewerDirectory = getAsset<Directory>(editor->assetManager, projectFolder, false);
-
 		// Scene
 		editor->scene = createScene();
+		editor->runtimeScene = nullptr;
+
+		// Script context
+		// TODO: Set to project name
+		editor->scriptContext = createScriptContext("XenonProjectDomain");
+		editor->scriptContext->scene = editor->scene;
+
+		// Asset viewer
+		editor->assetViewerDirectory = getAsset<Directory>(editor->assetManager, projectFolder, false);
 
 		return editor;
 	}
 
 	void destroyEditor(EditorData* data) {
+		destroyScriptContext(data->scriptContext);
+
 		destroyScene(data->scene);
+		if (data->runtimeScene) {
+			destroyScene(data->runtimeScene);
+		}
 
 		destroyModel(data->gridModel);
 
@@ -134,7 +145,7 @@ namespace xe {
 			ImGuizmo::SetRect(data->sceneViewportPos.x, data->sceneViewportPos.y, data->sceneViewportSize.x, data->sceneViewportSize.y);
 			ImGuizmo::SetGizmoSizeClipSpace(0.05f * 1080.0f / data->sceneViewportSize.y);
 
-			Entity selectedEntity = getEntityFromID(data->scene, data->selectedEntityID);
+			Entity selectedEntity = getEntityFromID(getActiveScene(data), data->selectedEntityID);
 
 			TransformComponent& selectedTransform = selectedEntity.getComponent<TransformComponent>();
 			glm::mat4 worldMatrix = getWorldMatrix(selectedEntity);
@@ -159,7 +170,7 @@ namespace xe {
 			BoundingBox bounds;
 			if (data->editOperation == ImGuizmo::OPERATION::BOUNDS) {
 				bounds = BoundingBox{ glm::vec3(-.5f, -.5f, -.5f), glm::vec3(.5f, .5f, .5f) };
-				Entity entity = getEntityFromID(data->scene, data->selectedEntityID);
+				Entity entity = getEntityFromID(getActiveScene(data), data->selectedEntityID);
 				if (entity.hasComponent<ModelComponent>()) {
 					ModelComponent& modelComponent = entity.getComponent<ModelComponent>();
 					if (modelComponent.model) {
@@ -183,7 +194,7 @@ namespace xe {
 			}
 
 			if (Input::isKeyPressed(GLFW_KEY_DELETE)) {
-				removeEntity(data->scene, data->selectedEntityID);
+				removeEntity(getActiveScene(data), data->selectedEntityID);
 				data->selectedEntityID = UUID::None();
 			}
 		}
@@ -236,13 +247,49 @@ namespace xe {
 		ImGui::PopStyleVar();
 	}
 
+	void drawStatusBar(EditorData* data) {
+		if (ImGui::Begin("StatusBar")) {
+
+			if (ImGui::Button("Play") && data->playState != PlayModeState::Play) {
+				if (data->playState == PlayModeState::Edit) {
+					// Copy scene
+					data->runtimeScene = createCopy(data->scene);
+					// Set script context active scene
+					data->scriptContext->scene = data->runtimeScene;
+					// Init entities
+					initSceneScriptEntities(data->scriptContext, data->runtimeScene);
+				}
+				
+				data->playState = PlayModeState::Play;
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Stop") && data->playState != PlayModeState::Edit) {
+				data->playState = PlayModeState::Edit;
+				data->scriptContext->scene = data->scene;
+
+				destroyScene(data->runtimeScene);
+				data->runtimeScene = nullptr;
+				// TODO: Clean up instances
+			}
+		}
+		ImGui::End();
+	}
+
 	void drawEditor(EditorData* data) {
 		float menuHeight = drawMenuBar(data);
 		drawApplication(data, menuHeight);
-		drawHierarchy(data->scene, data->selectedEntityID);
+		drawHierarchy(getActiveScene(data), data->selectedEntityID);
 		drawInspector(data);
 		drawAssetViewer(data);
+		drawStatusBar(data);
 		drawViewport(data);
+	}
+
+	Scene* getActiveScene(EditorData* data) {
+		if (data->playState == PlayModeState::Edit) {
+			return data->scene;
+		}
+		return data->runtimeScene;
 	}
 
 }

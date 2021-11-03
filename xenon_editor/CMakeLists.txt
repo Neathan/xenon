@@ -37,7 +37,15 @@ add_executable(xenon_editor
     "src/ui/editor.h"
     "src/ui/editor.cpp"
     "src/ui/imgui_operators.h"
- "src/ui/theme.h" "src/ui/theme.cpp" "src/ui/inspector.h" "src/ui/inspector.cpp" "src/ui/imgui_components.h" "src/ui/imgui_components.cpp" "src/ui/asset_viewer.h" "src/ui/asset_viewer.cpp")
+    "src/ui/theme.h"
+    "src/ui/theme.cpp"
+    "src/ui/inspector.h"
+    "src/ui/inspector.cpp"
+    "src/ui/imgui_components.h"
+    "src/ui/imgui_components.cpp"
+    "src/ui/asset_viewer.h"
+    "src/ui/asset_viewer.cpp"
+)
 
 target_include_directories(xenon_editor PUBLIC src/)
 target_link_libraries(xenon_editor PUBLIC xenon)
@@ -51,3 +59,15 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
                     COMMAND ${CMAKE_COMMAND} -E copy_directory
                     $<TARGET_FILE_DIR:xenon>/assets $<TARGET_FILE_DIR:${PROJECT_NAME}>/assets)
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E copy_directory
+                    $<TARGET_FILE_DIR:xenon>/mono $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E copy
+                    ${CMAKE_SOURCE_DIR}/xenon_csharp/bin/xenon.dll $<TARGET_FILE_DIR:${PROJECT_NAME}>/xenon.dll)
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E copy
+                    ${CMAKE_SOURCE_DIR}/xenon_csharp/test/bin/test.dll $<TARGET_FILE_DIR:${PROJECT_NAME}>/test.dll)

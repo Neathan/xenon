@@ -13,6 +13,7 @@ add_subdirectory(libs/glm/)
 add_subdirectory(libs/tinygltf/)
 add_subdirectory(libs/entt)
 add_subdirectory(libs/ktx)
+add_subdirectory(libs/mono)
 
 add_library(xenon STATIC
 	"src/xenon/core/application.cpp"
@@ -56,7 +57,8 @@ add_library(xenon STATIC
 	"src/xenon/scene/scene.h"
 	"src/xenon/scene/scene.cpp"
 	"src/xenon/scripting/script.h"
-)
+	"src/xenon/scripting/script.cpp"
+	)
 
 
 target_compile_definitions(xenon PUBLIC GLFW_INCLUDE_NONE)
@@ -69,8 +71,16 @@ target_link_libraries(xenon PUBLIC glm)
 target_link_libraries(xenon PUBLIC tinygltf)
 target_link_libraries(xenon PUBLIC EnTT::EnTT)
 target_link_libraries(xenon PUBLIC ktx)
+target_link_libraries(xenon PUBLIC mono)
 
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
                     COMMAND ${CMAKE_COMMAND} -E copy_directory
                     ${CMAKE_CURRENT_LIST_DIR}/assets $<TARGET_FILE_DIR:${PROJECT_NAME}>/assets)
 
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E copy_directory
+                    ${CMAKE_CURRENT_LIST_DIR}/libs/mono/bin $<TARGET_FILE_DIR:${PROJECT_NAME}>/mono)
+
+					add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E copy_directory
+                    ${CMAKE_CURRENT_LIST_DIR}/libs/mono/compiler $<TARGET_FILE_DIR:${PROJECT_NAME}>/mono/mono/lib)

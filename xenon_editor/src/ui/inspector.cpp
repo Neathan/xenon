@@ -87,6 +87,67 @@ namespace xe {
 		endComponent(open);
 	}
 
+	void drawScriptComponent(EditorData* data, ScriptComponent& script) {
+		bool open = beginComponent("Script");
+		if (open) {
+			Entity selectedEntity = getEntityFromID(data->scene, data->selectedEntityID);
+
+			beginField("Name");
+			std::string lastModuleName = script.moduleName; // TODO: Find better way to do this
+			if (ImGui::InputText("###Name", &script.moduleName)) {
+				if (moduleExists(data->scriptContext, lastModuleName)) {
+// 					unloadScriptEntity(data->scriptContext, selectedEntity, lastModuleName);
+					cleanScriptEntity(data->scriptContext, selectedEntity);
+				}
+				if (moduleExists(data->scriptContext, script.moduleName)) {
+					loadScriptEntity(data->scriptContext, selectedEntity);
+				}
+			}
+			endField();
+
+			// Public fields
+			if (moduleExists(data->scriptContext, script.moduleName)) {
+				for (auto& [name, field] : getInstanceFields(data->scriptContext, selectedEntity)) {
+					bool isRuntime = data->playState != PlayModeState::Edit && isRuntimeAvailable(field);
+
+					beginField(name.c_str());
+					if (field.type == FieldType::Int) {
+						int value = isRuntime ? getRuntimeValue<int>(field) : getStoredValue<int>(field);
+						if (ImGui::InputInt(field.name.c_str(), &value)) {
+							isRuntime ? setRuntimeValue(field, value) : setStoredValue(field, value);
+						}
+					}
+					else if (field.type == FieldType::Float) {
+						float value = isRuntime ? getRuntimeValue<float>(field) : getStoredValue<float>(field);
+						if (ImGui::InputFloat(field.name.c_str(), &value)) {
+							isRuntime ? setRuntimeValue(field, value) : setStoredValue(field, value);
+						}
+					}
+					else if (field.type == FieldType::Vec2) {
+						glm::vec2 value = isRuntime ? getRuntimeValue<glm::vec2>(field) : getStoredValue<glm::vec2>(field);
+						if (ImGui::InputVector2(field.name.c_str(), glm::value_ptr(value))) {
+							isRuntime ? setRuntimeValue(field, value) : setStoredValue(field, value);
+						}
+					}
+					else if (field.type == FieldType::Vec3) {
+						glm::vec3 value = isRuntime ? getRuntimeValue<glm::vec3>(field) : getStoredValue<glm::vec3>(field);
+						if (ImGui::InputVector3(field.name.c_str(), glm::value_ptr(value))) {
+							isRuntime ? setRuntimeValue(field, value) : setStoredValue(field, value);
+						}
+					}
+					else if (field.type == FieldType::Vec4) {
+						glm::vec4 value = isRuntime ? getRuntimeValue<glm::vec4>(field) : getStoredValue<glm::vec4>(field);
+						if (ImGui::InputVector4(field.name.c_str(), glm::value_ptr(value))) {
+							isRuntime ? setRuntimeValue(field, value) : setStoredValue(field, value);
+						}
+					}
+					endField();
+				}
+			}
+		}
+		endComponent(open);
+	}
+
 	void drawModelComponent(AssetManager* manager, ModelComponent& modelComponent) {
 		bool open = beginComponent("Model");
 		if (open) {
@@ -165,7 +226,7 @@ namespace xe {
 					ImGui::EndGroup();
 				}
 			}
-			
+
 		}
 		endComponent(open);
 	}
@@ -185,8 +246,13 @@ namespace xe {
 				if (entity.hasComponent<ModelComponent>()) {
 					drawModelComponent(data->assetManager, entity.getComponent<ModelComponent>());
 				}
+				if (entity.hasComponent<ScriptComponent>()) {
+					drawScriptComponent(data, entity.getComponent<ScriptComponent>());
+				}
 
-				ImGui::Button("Add component");
+				if(ImGui::Button("Add component")) {
+					entity.addComponent<ScriptComponent>("TestScripts.TestScrip");
+				}
 			}
 			else if (data->selectedAsset != nullptr) {
 				ImGui::Text(data->selectedAsset->runtimeData.filename.c_str());
@@ -212,7 +278,7 @@ namespace xe {
 					ImGui::Text(data->selectedAsset->runtimeData.filename.c_str());
 					endField();
 
-					beginField("Extention");
+					beginField("Extension");
 					ImGui::Text(data->selectedAsset->runtimeData.extension.c_str());
 					endField();
 

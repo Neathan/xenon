@@ -9,3 +9,4 @@
 #include "xenon/graphics/primitives.h"
 #include "xenon/graphics/brdf.h"
 #include "xenon/scene/scene.h"
+#include "xenon/scripting/script.h"

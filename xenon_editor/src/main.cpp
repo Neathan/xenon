@@ -9,9 +9,9 @@
 #include "ui/theme.h"
 #include "ui/editor.h"
 
-
 int main() {
 	using namespace xe;
+
 
 	//----------------------------------------
 	// SECTION: Application setup
@@ -45,6 +45,12 @@ int main() {
 	//----------------------------------------
 
 	EditorData* editorData = createEditor("assets/");
+
+	//----------------------------------------
+	// SECTION: Scripting
+	//----------------------------------------
+
+	loadScriptAssembly(editorData->scriptContext, "Test.dll");
 
 	//----------------------------------------
 	// SECTION: Load environment
@@ -100,7 +106,7 @@ int main() {
 		//----------------------------------------
 
 		if (Input::isKeyPressed(GLFW_KEY_F) && editorData->selectedEntityID.isValid()) {
-			cameraFocus(editorData->camera, getWorldMatrix(getEntityFromID(editorData->scene, editorData->selectedEntityID))[3]);
+			cameraFocus(editorData->camera, getWorldMatrix(getEntityFromID(getActiveScene(editorData), editorData->selectedEntityID))[3]);
 		}
 
 		if (Input::isKeyPressed(GLFW_KEY_ESCAPE)) {
@@ -113,19 +119,24 @@ int main() {
 			updateOrbitCamera(editorData->camera, ts);
 		}
 
+		// Scripts
+		if (editorData->playState == PlayModeState::Play) {
+			updateScriptEntities(editorData->scriptContext, ts.deltaTime);
+		}
+
 		//----------------------------------------
 		// SECTION: Render
 		//----------------------------------------
 
 		bindFramebuffer(*editorData->framebuffer);
 		clearFramebuffer(*editorData->framebuffer, *editorData->renderer->shader);
-		renderScene(editorData->scene, *editorData->renderer, editorData->camera, environments[currentEnvironment].environment);
+		renderScene(getActiveScene(editorData), *editorData->renderer, editorData->camera, environments[currentEnvironment].environment);
 		// TODO: Make this nicer
 		// Disable rendering to objectID attachment
 		glNamedFramebufferDrawBuffer(editorData->framebuffer->frambufferID, GL_COLOR_ATTACHMENT0);
 		//renderEnvironment(editorData->renderer, environments[currentEnvironment].environment, editorData->camera);
 		renderGrid(editorData->gridShader, editorData->gridModel, editorData->camera);
-		// Re-enable rendering to objectID attachemtn
+		// Re-enable rendering to objectID attachment
 		glNamedFramebufferDrawBuffers(editorData->framebuffer->frambufferID, editorData->framebuffer->colorBuffers.size(), editorData->framebuffer->colorBuffers.data());
 		unbindFramebuffer();
 		// Blit framebuffer data into displayedFramebuffer (resolve AA data)

@@ -1,7 +1,13 @@
 #include "scene.h"
 
+#include <glm/gtx/matrix_decompose.hpp>
+#include <glm/gtx/quaternion.hpp>
+
 #include "xenon/core/assert.h"
 #include "xenon/graphics/environment.h"
+
+#include "xenon/scripting/script.h"
+
 
 namespace xe {
 
@@ -23,6 +29,9 @@ namespace xe {
 	}
 
 	void destroyScene(Scene* scene) {
+		if (getActiveContext()) {
+			destroyScriptScene(getActiveContext(), scene);
+		}
 		delete scene;
 	}
 
@@ -92,7 +101,7 @@ namespace xe {
 		}
 		loadInt(*renderer.shader, "pointLightsUsed", index);
 		
-		// Load environment and brdf
+		// Load environment and BRDF
 		glBindTextureUnit(5, environment.irradianceMap->textureID);
 		glBindTextureUnit(6, environment.radianceMap->textureID);
 		glBindTextureUnit(7, renderer.brdfLUT->textureID);
@@ -109,6 +118,112 @@ namespace xe {
 				if (modelComponent.wireframe) glPolygonMode(GL_FRONT, GL_FILL);
 			}
 		}
+	}
+
+	void copyComponentIdentity(Scene* source, Scene* target) {
+		auto components = source->registry.view<IdentityComponent>();
+		for (auto& [srcEntity, srcIdentity] : components.each()) {
+			entt::entity destEntity = target->entityMap.at(srcIdentity.uuid).handle;
+			auto& destComponent = target->registry.emplace_or_replace<IdentityComponent>(destEntity, srcIdentity);
+		}
+	}
+
+	template<typename T>
+	void copyComponent(Scene* source, Scene* target) {
+		auto components = source->registry.view<IdentityComponent, T>();
+		for (auto& [srcEntity, srcIdentity, srcComponent] : components.each()) {
+			entt::entity destEntity = target->entityMap.at(srcIdentity.uuid).handle;
+			auto& destComponent = target->registry.emplace_or_replace<T>(destEntity, srcComponent);
+		}
+	}
+
+	void copyScene(Scene* source, Scene* target) {
+		// Copy entity map
+		auto identityComponents = source->registry.view<IdentityComponent>();
+		for (auto& [entity, identityComponent] : identityComponents.each()) {
+			Entity e = createEntityWithID(target, identityComponent.name, identityComponent.uuid);
+			target->entityMap[identityComponent.uuid] = e;
+		}
+
+		// Copy components
+		copyComponentIdentity(source, target);
+		copyComponent<TransformComponent>(source, target);
+		copyComponent<ModelComponent>(source, target);
+		copyComponent<ScriptComponent>(source, target);
+		copyComponent<PointLightComponent>(source, target);
+
+		// Load script entities
+		loadSceneScriptEntities(getActiveContext(), target);
+
+		// Copy script data
+// 		const auto& instanceData = getActiveContext()->instanceData;
+// 		if (instanceData.find(target->uuid) != instanceData.end()) {
+			copyEntityScriptData(getActiveContext(), source, target);
+// 		}
+	}
+
+	Scene* createCopy(Scene* scene) {
+		Scene* newScene = createScene();
+		copyScene(scene, newScene);
+		return newScene;
+	}
+
+
+	//----------------------------------------
+	// SECTION: Components
+	//----------------------------------------
+
+	glm::vec3 getTransformPosition(const TransformComponent& transform) {
+		return transform.matrix[3];
+	}
+
+	void setTransformPosition(TransformComponent& transform, glm::vec3 position) {
+		transform.matrix[3][0] = position.x;
+		transform.matrix[3][1] = position.y;
+		transform.matrix[3][2] = position.z;
+	}
+
+	glm::quat getTransformRotation(const TransformComponent& transform) {
+		glm::vec3 scale;
+		glm::quat rotation;
+		glm::vec3 translation;
+		glm::vec3 skew;
+		glm::vec4 perspective;
+		glm::decompose(transform.matrix, scale, rotation, translation, skew, perspective);
+		return glm::conjugate(rotation);
+	}
+
+	void setTransformRotation(TransformComponent& transform, glm::quat rotation) {
+		glm::vec3 scale;
+		glm::quat oldRotation;
+		glm::vec3 translation;
+		glm::vec3 skew;
+		glm::vec4 perspective;
+		glm::decompose(transform.matrix, scale, oldRotation, translation, skew, perspective);
+		
+		transform.matrix *= glm::toMat4(glm::inverse(glm::conjugate(rotation)) * rotation);
+	}
+
+	glm::vec3 getTransformScale(const TransformComponent& transform) {
+		glm::vec3 scale;
+		glm::quat rotation;
+		glm::vec3 translation;
+		glm::vec3 skew;
+		glm::vec4 perspective;
+		glm::decompose(transform.matrix, scale, rotation, translation, skew, perspective);
+
+		return scale;
+	}
+
+	void setTransformScale(TransformComponent& transform, glm::vec3 scale) {
+		glm::vec3 oldScale;
+		glm::quat rotation;
+		glm::vec3 translation;
+		glm::vec3 skew;
+		glm::vec4 perspective;
+		glm::decompose(transform.matrix, oldScale, rotation, translation, skew, perspective);
+
+		transform.matrix = glm::scale(transform.matrix, scale - oldScale);
 	}
 
 }

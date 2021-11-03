@@ -8,6 +8,12 @@
 
 namespace xe {
 
+	enum class PlayModeState {
+		Edit,
+		Play,
+		Pause
+	};
+
 	struct EditorData {
 		// SECTION: Assets (initialized)
 		AssetManager* assetManager;
@@ -26,6 +32,11 @@ namespace xe {
 		// SECTION: Viewport (initialized)
 		OrbitCamera camera;
 		Scene* scene = nullptr; // TODO: Make runtime determined
+		Scene* runtimeScene = nullptr;
+		
+		// SECTION: Scripting (initialized)
+		ScriptContext* scriptContext = nullptr;
+
 
 		// SECTION: Asset viewer (initialized)
 		Directory* assetViewerDirectory = nullptr;
@@ -42,11 +53,16 @@ namespace xe {
 		ImGuizmo::MODE editMode = ImGuizmo::MODE::LOCAL;
 		ImGuizmo::OPERATION editOperation = ImGuizmo::OPERATION::TRANSLATE;
 
+		// SECTION: Runtime (runtime)
+		PlayModeState playState = PlayModeState::Edit;
+
 	};
 
 	EditorData* createEditor(const std::string& projectFolder);
 	void destroyEditor(EditorData* data);
 
 	void drawEditor(EditorData* data);
+
+	Scene* getActiveScene(EditorData* data);
 
 }
