@@ -8,6 +8,7 @@ namespace TestScripts {
 
 		public int testValue = 1;
 		public float timer = 0;
+		public float radius = 1;
 
 		public TestScript() {
 			Console.WriteLine("Constructor called!");
@@ -15,16 +16,12 @@ namespace TestScripts {
 
 		public void Start() {
 			Console.WriteLine("Start called!");
+			CreateComponent<PointLightComponent>();
 		}
 
 		public void Update(float delta) {
-			Console.WriteLine("Update called!");
-
 			timer += delta;
-
-			Console.WriteLine("Timer: " + timer);
-
-			position += new Vector3(delta, 0, 0);
+			position = new Vector3((float)Math.Sin(timer) * radius, position.y, (float)Math.Cos(timer) * radius);
 		}
 
 	}

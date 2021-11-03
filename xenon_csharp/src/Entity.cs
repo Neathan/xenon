@@ -13,35 +13,35 @@ namespace Xenon {
 
 		public Vector3 position {
 			get {
-				return GetComponent<TransformComponent>().Position;
+				return GetComponent<TransformComponent>().position;
 			}
 			set {
-				GetComponent<TransformComponent>().Position = value;
+				GetComponent<TransformComponent>().position = value;
 			}
 		}
 
 		public Vector3 rotation {
 			get {
-				return GetComponent<TransformComponent>().Rotation;
+				return GetComponent<TransformComponent>().rotation;
 			}
 			set {
-				GetComponent<TransformComponent>().Rotation = value;
+				GetComponent<TransformComponent>().rotation = value;
 			}
 		}
 
 		public Vector3 scale {
 			get {
-				return GetComponent<TransformComponent>().Scale;
+				return GetComponent<TransformComponent>().scale;
 			}
 			set {
-				GetComponent<TransformComponent>().Scale = value;
+				GetComponent<TransformComponent>().scale = value;
 			}
 		}
 
 		public T CreateComponent<T>() where T : Component, new() {
 			CreateComponent_Native(id, typeof(T));
 			T component = new T();
-			component.Entity = this;
+			component.entity = this;
 			return component;
 		}
 
@@ -52,7 +52,7 @@ namespace Xenon {
 		public T GetComponent<T>() where T : Component, new() {
 			if (HasComponent<T>()) {
 				T component = new T();
-				component.Entity = this;
+				component.entity = this;
 				return component;
 			}
 			return null;

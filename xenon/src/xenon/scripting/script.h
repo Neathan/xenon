@@ -157,6 +157,7 @@ namespace xe {
 
 	void cleanSceneScriptEntities(ScriptContext* context, Scene* scene);
 
+	void startScriptEntities(ScriptContext* context);
 	void updateScriptEntities(ScriptContext* context, float delta);
 
 

@@ -484,6 +484,20 @@ namespace xe {
 		}
 	}
 
+	void startScriptEntities(ScriptContext* context) {
+		auto scripts = context->scene->registry.view<ScriptComponent>();
+		for (auto& [uuid, script] : scripts.each()) {
+			if (context->instanceData.find(context->scene->uuid) == context->instanceData.end()) {
+				continue;
+			}
+
+			Instance& instance = context->instanceData.at(context->scene->uuid).at(getEntityID({ uuid, context->scene })).instance;
+			if (instance.handle && instance.scriptClass->onUpdate) {
+				invokeMethod(getInstanceMonoObject(instance), instance.scriptClass->onStart, nullptr);
+			}
+		}
+	}
+
 	void updateScriptEntities(ScriptContext* context, float delta) {
 		auto scripts = context->scene->registry.view<ScriptComponent>();
 		for (auto& [uuid, script] : scripts.each()) {
@@ -689,6 +703,7 @@ namespace xe {
 		COMPONENT_REGISTER_TYPE_TEMPLATE(IdentityComponent, context, );
 		COMPONENT_REGISTER_TYPE_TEMPLATE(TransformComponent, context, );
 		COMPONENT_REGISTER_TYPE_TEMPLATE(ScriptComponent, context, );
+		COMPONENT_REGISTER_TYPE_TEMPLATE(PointLightComponent, context, );
 
 		// Native functions
 		mono_add_internal_call("Xenon.Entity::CreateComponent_Native", entityCreateComponent);

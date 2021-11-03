@@ -258,6 +258,8 @@ namespace xe {
 					data->scriptContext->scene = data->runtimeScene;
 					// Init entities
 					initSceneScriptEntities(data->scriptContext, data->runtimeScene);
+					// Start entities
+					startScriptEntities(data->scriptContext);
 				}
 				
 				data->playState = PlayModeState::Play;

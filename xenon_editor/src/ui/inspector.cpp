@@ -90,13 +90,12 @@ namespace xe {
 	void drawScriptComponent(EditorData* data, ScriptComponent& script) {
 		bool open = beginComponent("Script");
 		if (open) {
-			Entity selectedEntity = getEntityFromID(data->scene, data->selectedEntityID);
+			Entity selectedEntity = getEntityFromID(getActiveScene(data), data->selectedEntityID);
 
 			beginField("Name");
 			std::string lastModuleName = script.moduleName; // TODO: Find better way to do this
 			if (ImGui::InputText("###Name", &script.moduleName)) {
 				if (moduleExists(data->scriptContext, lastModuleName)) {
-// 					unloadScriptEntity(data->scriptContext, selectedEntity, lastModuleName);
 					cleanScriptEntity(data->scriptContext, selectedEntity);
 				}
 				if (moduleExists(data->scriptContext, script.moduleName)) {
@@ -235,7 +234,7 @@ namespace xe {
 
 		if (ImGui::Begin("Inspector")) {
 			if (data->selectedEntityID.isValid()) {
-				Entity entity = getEntityFromID(data->scene, data->selectedEntityID);
+				Entity entity = getEntityFromID(getActiveScene(data), data->selectedEntityID);
 				drawIdentityComponent(entity.getComponent<IdentityComponent>());
 
 				drawTransformComponent(entity.getComponent<TransformComponent>());
@@ -250,8 +249,11 @@ namespace xe {
 					drawScriptComponent(data, entity.getComponent<ScriptComponent>());
 				}
 
-				if(ImGui::Button("Add component")) {
+				if(ImGui::Button("Add Script")) {
 					entity.addComponent<ScriptComponent>("TestScripts.TestScrip");
+				}
+				if (ImGui::Button("Add component")) {
+					entity.addComponent<PointLightComponent>();
 				}
 			}
 			else if (data->selectedAsset != nullptr) {

@@ -156,10 +156,10 @@ namespace xe {
 		loadSceneScriptEntities(getActiveContext(), target);
 
 		// Copy script data
-// 		const auto& instanceData = getActiveContext()->instanceData;
-// 		if (instanceData.find(target->uuid) != instanceData.end()) {
+		const auto& instanceData = getActiveContext()->instanceData;
+		if (instanceData.find(target->uuid) != instanceData.end()) {
 			copyEntityScriptData(getActiveContext(), source, target);
-// 		}
+		}
 	}
 
 	Scene* createCopy(Scene* scene) {

@@ -2,56 +2,56 @@
 
 namespace Xenon {
 	public abstract class Component {
-		public Entity Entity { get; set; }
+		public Entity entity { get; set; }
 	}
 
 	public class IdentityComponent : Component {
-
+		// TODO: Implement
 	}
 
 	public class TransformComponent : Component {
 
-		public Transform Transform {
+		public Transform transform {
 			get {
-				GetTransform_Native(Entity.id, out Transform result);
+				GetTransform_Native(entity.id, out Transform result);
 				return result;
 			}
 
 			set {
-				SetTransform_Native(Entity.id, ref value);
+				SetTransform_Native(entity.id, ref value);
 			}
 		}
 
-		public Vector3 Position {
+		public Vector3 position {
 			get {
-				GetPosition_Native(Entity.id, out Vector3 result);
+				GetPosition_Native(entity.id, out Vector3 result);
 				return result;
 			}
 
 			set {
-				SetPosition_Native(Entity.id, ref value);
+				SetPosition_Native(entity.id, ref value);
 			}
 		}
 
-		public Vector3 Rotation {
+		public Vector3 rotation {
 			get {
-				GetRotation_Native(Entity.id, out Vector3 result);
+				GetRotation_Native(entity.id, out Vector3 result);
 				return result;
 			}
 
 			set {
-				SetRotation_Native(Entity.id, ref value);
+				SetRotation_Native(entity.id, ref value);
 			}
 		}
 
-		public Vector3 Scale {
+		public Vector3 scale {
 			get {
-				GetScale_Native(Entity.id, out Vector3 result);
+				GetScale_Native(entity.id, out Vector3 result);
 				return result;
 			}
 
 			set {
-				SetScale_Native(Entity.id, ref value);
+				SetScale_Native(entity.id, ref value);
 			}
 		}
 
@@ -74,6 +74,10 @@ namespace Xenon {
 	}
 
 	public class ScriptComponent : Component {
+		// TODO: Implement
+	}
 
+	public class PointLightComponent : Component {
+		// TODO: Implement
 	}
 }
