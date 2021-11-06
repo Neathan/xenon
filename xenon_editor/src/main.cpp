@@ -119,7 +119,8 @@ int main() {
 			updateOrbitCamera(editorData->camera, ts);
 		}
 
-		// Scripts
+		// Scripts & Animations
+		updateSceneModels(getActiveScene(editorData), ts.deltaTime);
 		if (editorData->playState == PlayModeState::Play) {
 			updateScriptEntities(editorData->scriptContext, ts.deltaTime);
 		}

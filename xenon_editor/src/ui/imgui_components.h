@@ -17,8 +17,8 @@ namespace ImGui {
 	bool InputVector4(const char* label, float* vector, ImGuiInputTextFlags flags = 0);
 
 	template<typename T>
-	bool InputAsset(const char* label, xe::AssetManager* manager, xe::AssetType acceptedType, T** targetAsset) {
-		ImGui::InputText(label, (*targetAsset) ? &(*targetAsset)->metadata.path : &std::string(), ImGuiInputTextFlags_ReadOnly);
+	bool InputAsset(const char* label, xe::AssetManager* manager, xe::AssetType acceptedType, T* originalAsset, T** targetAsset) {
+		ImGui::InputText(label, originalAsset ? &originalAsset->metadata.path : &std::string(), ImGuiInputTextFlags_ReadOnly);
 		if (ImGui::BeginDragDropTarget()) {
 			auto data = ImGui::AcceptDragDropPayload("asset");
 			if (data) {
@@ -32,6 +32,11 @@ namespace ImGui {
 			ImGui::EndDragDropTarget();
 		}
 		return false;
+	}
+
+	template<typename T>
+	bool InputAsset(const char* label, xe::AssetManager* manager, xe::AssetType acceptedType, T** targetAsset) {
+		return InputAsset<T>(label, manager, acceptedType, *targetAsset, targetAsset);
 	}
 
 

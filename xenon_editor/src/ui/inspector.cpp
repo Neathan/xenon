@@ -152,16 +152,29 @@ namespace xe {
 		if (open) {
 			beginField("Model");
 			Asset* asset = nullptr;
-			if (ImGui::InputAsset("###modelPath", manager, AssetType::Model, &asset)) {
-				destroyModel(modelComponent.model);
-				modelComponent.model = static_cast<Model*>(asset);
+			if (ImGui::InputAsset<Asset>("###modelPath", manager, AssetType::Model, modelComponent.model, &asset)) {
+				if (modelComponent.model) {
+					// TODO: This should be replaced with asset manager functionality
+					destroyModel(modelComponent.model);
+				}
+				setModelComponentModel(modelComponent, static_cast<Model*>(asset));
+				modelComponent.animation = ModelAnimation();
 			}
 			endField();
 
+			// Animation
+			if (modelComponent.model) {
+				beginField("Animation index");
+				ImGui::InputInt("###Animation index", &modelComponent.animation.animationIndex);
+				endField();
+			}
+
 			// Material
 			if (modelComponent.model) {
-				for (auto& material : modelComponent.model->materials) {
+				for (size_t i = 0; i < modelComponent.model->materials.size(); ++i) {
+					auto& material = modelComponent.model->materials[i];
 					ImGui::BeginGroup();
+					ImGui::PushID(i);
 					ImGui::Text(material.name.c_str());
 
 					beginField("Name");
@@ -222,6 +235,7 @@ namespace xe {
 					ImGui::Checkbox("###Double sided", &material.doubleSided);
 					endField();
 
+					ImGui::PopID();
 					ImGui::EndGroup();
 				}
 			}
@@ -253,7 +267,7 @@ namespace xe {
 					entity.addComponent<ScriptComponent>("TestScripts.TestScrip");
 				}
 				if (ImGui::Button("Add component")) {
-					entity.addComponent<PointLightComponent>();
+					entity.addComponent<ModelComponent>();
 				}
 			}
 			else if (data->selectedAsset != nullptr) {

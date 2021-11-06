@@ -269,6 +269,11 @@ namespace xe {
 				data->playState = PlayModeState::Edit;
 				data->scriptContext->scene = data->scene;
 
+				// Reset selected entity ID if it points to a now invalid entity
+				if (data->scene->entityMap.find(data->selectedEntityID) == data->scene->entityMap.end()) {
+					data->selectedEntityID = UUID::None();
+				}
+
 				destroyScene(data->runtimeScene);
 				data->runtimeScene = nullptr;
 				// TODO: Clean up instances

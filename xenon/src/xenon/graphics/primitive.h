@@ -9,9 +9,6 @@
 
 namespace xe {
 
-	// This should be the same value as the number of valid primitive attribute types
-	#define XE_PRIMITIVE_ATTRIBUTE_TYPES 4
-
 	enum class PrimitiveAttributeType : uint8_t {
 		POSITION		= 0,
 		TANGENT			= 1,
@@ -19,8 +16,10 @@ namespace xe {
 		TEXCOORD_0		= 3,
 		// TEXCOORD_1	= 4,
 		// COLOR_0		= 5,
-		// JOINTS_0		= 6,
-		// WEIGHTS_0	= 7,
+		JOINTS_0		= 4,
+		WEIGHTS_0		= 5,
+
+		LAST			= WEIGHTS_0 + 1,
 		INVALID			= UINT8_MAX
 	};
 
@@ -29,7 +28,7 @@ namespace xe {
 		GLsizei count = 0;
 	};
 
-	typedef std::array<PrimitiveAttribute, XE_PRIMITIVE_ATTRIBUTE_TYPES> PrimitiveAttributeArray;
+	typedef std::array<PrimitiveAttribute, (uint8_t)PrimitiveAttributeType::LAST> PrimitiveAttributeArray;
 
 	struct BoundingBox {
 		glm::vec3 min;

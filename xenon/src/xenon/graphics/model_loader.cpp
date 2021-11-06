@@ -4,6 +4,7 @@
 
 #include <tiny_gltf.h>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/string_cast.hpp>
 
 #include "xenon/core/log.h"
 #include "xenon/core/assert.h"
@@ -17,18 +18,20 @@ namespace xe {
 		if (node.matrix.size() == 16) {
 			return glm::make_mat4(node.matrix.data());
 		}
+		// TODO: Optimize, check if casting is the right choice here
 
 		glm::mat4 result = glm::mat4(1.0f);
-		// TODO: Optimize, check if casting is the right choice here
 		if (node.translation.size() == 3) {
 			result = glm::translate(result, (glm::vec3)glm::make_vec3(node.translation.data()));
 		}
-		if (node.rotation.size() == 3) {
-			result *= glm::mat4_cast((glm::quat)glm::make_quat(node.rotation.data()));
+		if (node.rotation.size() == 4) {
+			glm::vec4 inputValue = (glm::vec4)glm::make_vec4((node.rotation.data()));
+			result *= glm::toMat4(glm::quat(inputValue.w, inputValue.x, inputValue.y, inputValue.z));
 		}
 		if (node.scale.size() == 3) {
 			result = glm::scale(result, (glm::vec3)glm::make_vec3(node.scale.data()));
 		}
+
 		return result;
 	}
 
@@ -78,7 +81,7 @@ namespace xe {
 
 			// Process attributes
 			for (const auto& [attribute, accessorIndex] : primitive.attributes) {
-				tinygltf::Accessor accessor = model.accessors[accessorIndex];
+				const auto& accessor = model.accessors[accessorIndex];
 				int byteStride = accessor.ByteStride(model.bufferViews[accessor.bufferView]);
 				int size = accessor.type == TINYGLTF_TYPE_SCALAR ? 1 : accessor.type;
 				GLuint vbo = bufferVBOs.at(accessor.bufferView);
@@ -97,8 +100,8 @@ namespace xe {
 				// TODO: Implement additional attributes
 				//if (attribute.compare("TEXCOORD_1") == 0) type = PrimitiveAttributeType::TEXCOORD_1;
 				//if (attribute.compare("COLOR_0") == 0) type = PrimitiveAttributeType::COLOR_0;
-				//if (attribute.compare("JOINTS_0") == 0) type = PrimitiveAttributeType::JOINTS_0;
-				//if (attribute.compare("WEIGHTS_0") == 0) type = PrimitiveAttributeType::WEIGHTS_0;
+				if (attribute.compare("JOINTS_0") == 0) type = PrimitiveAttributeType::JOINTS_0;
+				if (attribute.compare("WEIGHTS_0") == 0) type = PrimitiveAttributeType::WEIGHTS_0;
 
 				if (type != PrimitiveAttributeType::INVALID) {
 					GLuint vaa = (GLuint)type;
@@ -107,7 +110,7 @@ namespace xe {
 					glVertexArrayAttribBinding(vao, vaa, vaa);
 					glVertexArrayVertexBuffer(vao, vaa, vbo, (GLintptr)((char*)NULL + accessor.byteOffset), byteStride);
 
-					// NOTE: Casting size_t to GLsizei is neccesary to comply with the limit set by OpenGL
+					// NOTE: Casting size_t to GLsizei is necessary to comply with the limit set by OpenGL
 					primitiveAttributeArray[(uint8_t)type] = PrimitiveAttribute{ vbo, (GLsizei)accessor.count };
 				}
 				else {
@@ -125,8 +128,8 @@ namespace xe {
 				const tinygltf::Accessor& indexAccessor = model.accessors[primitive.indices];
 				GLuint ebo = bufferVBOs.at(indexAccessor.bufferView);
 				glVertexArrayElementBuffer(vao, ebo);
-
-				// NOTE: Casting size_t to GLsizei is neccesary to comply with the limit set by OpenGL
+				
+				// NOTE: Casting size_t to GLsizei is necessary to comply with the limit set by OpenGL
 				outputModel->primitives.push_back(Primitive{ vao, (GLenum)primitive.mode, (GLsizei)indexAccessor.count, primitive.material, primitiveBounds, ebo, (GLenum)indexAccessor.componentType });
 			}
 			else {
@@ -171,11 +174,10 @@ namespace xe {
 		}
 
 		// Buffer all primitive buffers
+		// TODO: Don't store animation data or other data not used by GPU.
 		std::map<size_t, GLuint> bufferVBOs;
 		for (size_t i = 0; i < gltfModel.bufferViews.size(); ++i) {
 			const auto& bufferView = gltfModel.bufferViews.at(i);
-
-			// TODO: Make proper use of bufferView.target
 
 			const tinygltf::Buffer& buffer = gltfModel.buffers[bufferView.buffer];
 			GLuint vbo;
@@ -188,6 +190,7 @@ namespace xe {
 		Model* model = new Model();
 
 		AssetManager* manager = getAssetManager();
+
 
 		// Process materials
 		for (const auto& pMaterial : gltfModel.materials) {
@@ -223,64 +226,181 @@ namespace xe {
 			model->materials.push_back(material);
 		}
 
-		// Root node (needed since a scene can contain multiple root nodes)
-		model->nodes.push_back(ModelNode{ 0, 0 });
-		model->localPositions.emplace_back(glm::mat4x4(1.0f));
 
-		// This struct is needed for itterative itteration of the node hierarchy
+		// Root node (needed since a scene can contain multiple root nodes)
+		// model->nodes.push_back(ModelNode{ 0, 0 });
+		// model->localPositions.emplace_back(glm::mat4x4(1.0f));
+
+		// This struct is needed for iterative iteration of the node hierarchy
 		struct QueuedNode {
 			int parent;
 			int node;
 		};
 		std::queue<QueuedNode> queuedNodes;
 
-		// Queue all root nodes of the scene
-		const auto& sceneNodes = gltfModel.scenes[gltfModel.defaultScene].nodes;
+		// Mappings for converting original index to resulting index
+		std::map<int, int> nodeMapping;
+
+		std::vector<glm::mat4> globalPositions;
+		//globalPositions.push_back(glm::mat4(1.0f));
+
+
+		// Process root nodes sequentially
+		int currentIndex = 0;
+		size_t currentPrimitiveIndex = 0;
+
+		int currentSkinIndex = 0;
+
+		const auto& sceneNodes = gltfModel.scenes[gltfModel.defaultScene == -1 ? 0 : gltfModel.defaultScene].nodes;
 		for (size_t i = 0; i < sceneNodes.size(); ++i) {
 			const auto& rootNode = sceneNodes[i];
 
-			queuedNodes.push(QueuedNode{0, rootNode});
+			queuedNodes.push(QueuedNode{-1, rootNode});
+			globalPositions.emplace_back(getNodeTransform(gltfModel.nodes[rootNode]));
+
+			// Clear current node queue (root node-tree)
+			while (!queuedNodes.empty()) {
+				const QueuedNode& currentNode = queuedNodes.front();
+				const tinygltf::Node& node = gltfModel.nodes[currentNode.node];
+
+				nodeMapping[currentNode.node] = currentIndex;
+
+				// Process node
+				// Add local position
+				glm::mat4 localPosition = getNodeTransform(node);
+				model->localPositions.push_back(localPosition);
+
+				const glm::mat4& parentMatrix = currentNode.parent != -1 ? globalPositions[currentNode.parent] : glm::mat4(1.0f);
+				glm::mat4 globalPosition = parentMatrix * localPosition;
+				globalPositions.push_back(globalPosition);
+
+				// Check if node has valid mesh
+				int primitiveCount = 0;
+				int nodeSkin = -1;
+				if (node.mesh >= 0 && node.mesh < gltfModel.meshes.size()) {
+					// Add primitives
+					size_t count = processPrimitives(gltfModel, gltfModel.meshes[node.mesh], bufferVBOs, path, currentPrimitiveIndex, globalPosition, model);
+					primitiveCount += count;
+					currentPrimitiveIndex += count;
+
+					if (node.skin >= 0) {
+						// Add skin
+						tinygltf::Skin& gltfSkin = gltfModel.skins[node.skin];
+						Skin skin;
+						skin.skeleton = gltfSkin.skeleton;
+						skin.joints = gltfSkin.joints;
+						skin.name = gltfSkin.name;
+						// NOTE: jointNodes are added after all nodes have been processed
+
+						// Get skin inverse bind matrices accessor data
+						const auto& accessor = gltfModel.accessors[gltfSkin.inverseBindMatrices];
+						const auto& bufferView = gltfModel.bufferViews[accessor.bufferView];
+						const unsigned char* basePointer = gltfModel.buffers[bufferView.buffer].data.data() + accessor.byteOffset + bufferView.byteOffset;
+						int byteStride = accessor.ByteStride(bufferView);
+
+						for (size_t i = 0; i < accessor.count; ++i) {
+							glm::mat4 value = glm::make_mat4((float*)(basePointer + byteStride * i));
+							skin.inverseBindMatrices.push_back(value);
+						}
+
+						// Add the skin to the model
+						model->skins.push_back(skin);
+						
+						nodeSkin = currentSkinIndex;
+						++currentSkinIndex;
+					}
+				}
+
+				// Queue children
+				for (const auto& child : node.children) {
+					queuedNodes.push(QueuedNode{ currentIndex, child });
+				}
+
+				// Add node
+				model->nodes.push_back(ModelNode{ currentNode.parent, primitiveCount, nodeSkin, node.name });
+
+				++currentIndex;
+				queuedNodes.pop();
+			}
 		}
-		
-		
-		// Process nodes
-		uint16_t currentIndex = 1;
-		size_t currentPrimitiveIndex = 0;
-
-		std::vector<glm::mat4x4> globalPositions;
-		globalPositions.emplace_back(glm::mat4x4(1.0f));
-
-		while (!queuedNodes.empty()) {
-			const QueuedNode& currentNode = queuedNodes.front();
-			const tinygltf::Node& node = gltfModel.nodes[currentNode.node];
+		// Add joint nodes to skins (remapped joints)
+		for (Skin& skin : model->skins) {
+			for (int& joint : skin.joints) {
+				skin.jointNodes.push_back(nodeMapping[joint]);
+			}
 			
-			// Process node
-			// Add local position
-			glm::mat4 localPosition = getNodeTransform(node);
-			model->localPositions.push_back(localPosition);
-			
-			const glm::mat4& parentMatrix = globalPositions[currentNode.parent];
-			glm::mat4 globalPosition = parentMatrix * localPosition;
-			globalPositions.push_back(globalPosition);
-
-			// Check if node has valid mesh
-			uint8_t primitiveCount = 0;
-			if (node.mesh >= 0 && node.mesh < gltfModel.meshes.size()) {
-				size_t count = processPrimitives(gltfModel, gltfModel.meshes[node.mesh], bufferVBOs, path, currentPrimitiveIndex, globalPosition, model);
-				primitiveCount += count;
-				currentPrimitiveIndex += count;
+			if (skin.skeleton != -1) {
+				skin.skeleton = nodeMapping.at(skin.skeleton);
 			}
 
-			// Queue children
-			for (const auto& child : node.children) {
-				queuedNodes.push(QueuedNode{ currentIndex, child });
+		}
+
+		// Process animations
+		for (const auto& gltfAnimation : gltfModel.animations) {
+			Animation animation;
+			animation.name = gltfAnimation.name;
+
+			for (const auto& channel : gltfAnimation.channels) {
+				// Get common data
+				int node = nodeMapping.at(channel.target_node); // Get node and convert to current index
+				const auto& sampler = gltfAnimation.samplers.at(channel.sampler);
+				Interpolation interpolation = getInterpolation(sampler.interpolation);
+
+				// Find input base pointer and stride
+				const auto& inputAccessor = gltfModel.accessors[sampler.input];
+				const auto& inputBufferView = gltfModel.bufferViews[inputAccessor.bufferView];
+				const unsigned char* inputBasePointer = gltfModel.buffers[inputBufferView.buffer].data.data() + inputAccessor.byteOffset + inputBufferView.byteOffset;
+				int inputByteStride = inputAccessor.ByteStride(inputBufferView);
+
+				// Find output base pointer and stride
+				const auto& outputAccessor = gltfModel.accessors[sampler.output];
+				const auto& outputBufferView = gltfModel.bufferViews[outputAccessor.bufferView];
+				const unsigned char* outputBasePointer = gltfModel.buffers[outputBufferView.buffer].data.data() + outputAccessor.byteOffset + outputBufferView.byteOffset;
+				int outputByteStride = outputAccessor.ByteStride(outputBufferView);
+
+				// Add all values to node animation
+				for (size_t i = 0; i < inputAccessor.count; ++i) {
+					float time = *(float*)(inputBasePointer + inputByteStride * i);
+
+					NodeAnimation& nodeAnimation = animation.nodeAnimations[node];
+
+					if (channel.target_path == "translation") {
+						glm::vec3 value = glm::make_vec3((float*)(outputBasePointer + outputByteStride * i));
+						nodeAnimation.translation.push_back(AnimationTransformation<glm::vec3>{ time, value, interpolation });
+						if (animation.keyFrames < nodeAnimation.translation.size()) {
+							animation.keyFrames = nodeAnimation.translation.size();
+							if (animation.endTime < time) animation.endTime = time;
+						}
+					}
+					else if (channel.target_path == "rotation") {
+						// NOTE: Input uses X,Y,Z,W order while quaternion is W,X,Y,Z
+						glm::vec4 inputValue = glm::make_vec4((float*)(outputBasePointer + outputByteStride * i));
+						glm::quat value = glm::quat(inputValue.w, inputValue.x, inputValue.y, inputValue.z);
+						nodeAnimation.rotation.push_back(AnimationTransformation<glm::quat>{ time, value, interpolation });
+						if (animation.keyFrames < nodeAnimation.rotation.size()) {
+							animation.keyFrames = nodeAnimation.rotation.size();
+							if (animation.endTime < time) animation.endTime = time;
+						}
+					}
+					else if (channel.target_path == "scale") {
+						glm::vec3 value = glm::make_vec3((float*)(outputBasePointer + outputByteStride * i));
+						nodeAnimation.scale.push_back(AnimationTransformation<glm::vec3>{ time, value, interpolation });
+						if (animation.keyFrames < nodeAnimation.scale.size()) {
+							animation.keyFrames = nodeAnimation.scale.size();
+							if (animation.endTime < time) animation.endTime = time;
+						}
+					}
+					else { // "weights" (morph targets)
+						// TODO: Implement
+						if (animation.keyFrames < nodeAnimation.weight.size()) {
+							animation.keyFrames = nodeAnimation.weight.size();
+							if (animation.endTime < time) animation.endTime = time;
+						}
+					}
+				}
 			}
 
-			// Add node
-			model->nodes.push_back(ModelNode{ (uint16_t)currentNode.parent, primitiveCount });
-
-			++currentIndex;
-			queuedNodes.pop();
+			model->animations.push_back(animation);
 		}
 
 		XE_LOG_TRACE_F("MODEL_LOADER: Loaded model: {}", path);

@@ -30,13 +30,13 @@ namespace xe {
 
 	// TODO: Optimize
 	void loadUsedAttributes(const Shader& shader, const PrimitiveAttributeArray& attributeArray) {
-		loadInt(shader, "usingAttribTangent", attributeArray[(GLuint)PrimitiveAttributeType::TANGENT].vbo == 0);
-		loadInt(shader, "usingAttribNormal", attributeArray[(GLuint)PrimitiveAttributeType::NORMAL].vbo == 0);
-		loadInt(shader, "usingAttribTexCoord0", attributeArray[(GLuint)PrimitiveAttributeType::TEXCOORD_0].vbo == 0);
-		//loadInt(shader, "usingAttribTexCoord1", attributeArray[(GLuint)PrimitiveAttributeType::TEXCOORD_1].vbo == 0);
-		//loadInt(shader, "usingAttribColor0", attributeArray[(GLuint)PrimitiveAttributeType::COLOR_0].vbo == 0);
-		//loadInt(shader, "usingAttribJoints0", attributeArray[(GLuint)PrimitiveAttributeType::JOINTS_0].vbo == 0);
-		//loadInt(shader, "usingAttribWeights0", attributeArray[(GLuint)PrimitiveAttributeType::WEIGHTS_0].vbo == 0);
+		loadInt(shader, "usingAttribTangent", attributeArray[(GLuint)PrimitiveAttributeType::TANGENT].vbo != 0);
+		loadInt(shader, "usingAttribNormal", attributeArray[(GLuint)PrimitiveAttributeType::NORMAL].vbo != 0);
+		loadInt(shader, "usingAttribTexCoord0", attributeArray[(GLuint)PrimitiveAttributeType::TEXCOORD_0].vbo != 0);
+		//loadInt(shader, "usingAttribTexCoord1", attributeArray[(GLuint)PrimitiveAttributeType::TEXCOORD_1].vbo != 0);
+		//loadInt(shader, "usingAttribColor0", attributeArray[(GLuint)PrimitiveAttributeType::COLOR_0].vbo != 0);
+		loadInt(shader, "usingAttribJoints0", attributeArray[(GLuint)PrimitiveAttributeType::JOINTS_0].vbo != 0);
+		loadInt(shader, "usingAttribWeights0", attributeArray[(GLuint)PrimitiveAttributeType::WEIGHTS_0].vbo != 0);
 	}
 
 	void setObjectID(const Renderer& renderer, UUID id) {
@@ -45,11 +45,10 @@ namespace xe {
 		unbindShader();
 	}
 
-	void renderModel(const Renderer& renderer, const Model& model, const glm::mat4& transform, const Camera& camera, bool ignoreMaterials) {
-		size_t primitiveCounter = 0;
-
-		std::vector<glm::mat4x4> globalPositions;
-		globalPositions.reserve(model.localPositions.size());
+	void renderModel(const Renderer& renderer, const ModelComponent& modelComponent, const glm::mat4& transform, const Camera& camera, bool ignoreMaterials) {
+		const Model& model = *modelComponent.model;
+		
+		int primitiveCounter = 0;
 
 		bindShader(*renderer.shader);
 		loadMat4(*renderer.shader, "projection", camera.projection);
@@ -57,15 +56,20 @@ namespace xe {
 		loadVec3(*renderer.shader, "camera.position", camera.transform[3]);
 		loadVec3(*renderer.shader, "camera.direction", camera.transform[2]);
 
-		for (size_t i = 0; i < model.nodes.size(); ++i) {
+		for (int i = 0; i < model.nodes.size(); ++i) {
 			const ModelNode& node = model.nodes[i];
-			
-			const glm::mat4& parentMatrix = i == 0 ? glm::mat4(1.0f) : globalPositions[node.parent];
-			globalPositions.push_back(parentMatrix * model.localPositions[i]);
-			loadMat4(*renderer.shader, "transform", transform * globalPositions[i]);
+
+			if (node.skin != -1) {
+				const std::vector<glm::mat4>& jointMatrices = modelComponent.skinJointMatrices.at(node.skin);
+				for (int i = 0; i < jointMatrices.size(); ++i) {
+					loadMat4(*renderer.shader, ("jointMatrices[" + std::to_string(i) + "]").c_str(), jointMatrices[i]);
+				}
+			}
+
+			loadMat4(*renderer.shader, "transform", transform * modelComponent.currentGlobalPositions[i]);
 
 			// pii = primitiveIndicesIndex
-			for (size_t pii = primitiveCounter; pii < primitiveCounter + node.primitiveCount; ++pii) {
+			for (int pii = primitiveCounter; pii < primitiveCounter + node.primitiveCount; ++pii) {
 				const Primitive& primitive = model.primitives[model.primitiveIndices[pii]];
 
 				loadUsedAttributes(*renderer.shader, model.primitiveAttributes[model.primitiveIndices[pii]]);

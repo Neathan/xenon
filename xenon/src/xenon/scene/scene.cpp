@@ -83,6 +83,14 @@ namespace xe {
 		return localMatrix;
 	}
 
+	glm::mat4 getParentWorldMatrix(Entity entity) {
+		UUID parentID = entity.getComponent<TransformComponent>().parent;
+		if (parentID.isValid()) {
+			return getWorldMatrix(getEntityFromID(entity.scene, parentID));
+		}
+		return glm::mat4(1.0f);
+	}
+
 	glm::mat4 toLocalMatrix(glm::mat4 matrix, Entity entity) {
 		TransformComponent& transformComponent = entity.getComponent<TransformComponent>();
 		if (!transformComponent.parent.isValid()) {
@@ -114,8 +122,20 @@ namespace xe {
 			if (modelComponent.model) {
 				if(modelComponent.wireframe) glPolygonMode(GL_FRONT, GL_LINE);
 				setObjectID(renderer, identityComponent.uuid);
-				renderModel(renderer, *modelComponent.model, getWorldMatrix({ entity, scene }), camera);
+				renderModel(renderer, modelComponent, getWorldMatrix({ entity, scene }), camera);
 				if (modelComponent.wireframe) glPolygonMode(GL_FRONT, GL_FILL);
+			}
+		}
+	}
+
+	void updateSceneModels(Scene* scene, float delta) {
+		auto modelView = scene->registry.view<ModelComponent>();
+		for (auto [entity, modelComponent] : modelView.each()) {
+			if (modelComponent.model) {
+				if (modelComponent.animation.animationIndex != -1) {
+					updateAnimation(modelComponent, delta);
+				}
+				updateInstanceTransformation(modelComponent, getParentWorldMatrix({ entity, scene }));
 			}
 		}
 	}
@@ -174,56 +194,82 @@ namespace xe {
 	//----------------------------------------
 
 	glm::vec3 getTransformPosition(const TransformComponent& transform) {
-		return transform.matrix[3];
+		return getTransformMatrixPosition(transform.matrix);
 	}
 
 	void setTransformPosition(TransformComponent& transform, glm::vec3 position) {
-		transform.matrix[3][0] = position.x;
-		transform.matrix[3][1] = position.y;
-		transform.matrix[3][2] = position.z;
+		transform.matrix = setTransformMatrixPosition(transform.matrix, position);
+	}
+
+	glm::vec3 getTransformMatrixPosition(const glm::mat4& matrix) {
+		return matrix[3];
+	}
+
+	glm::mat4 setTransformMatrixPosition(const glm::mat4& matrix, glm::vec3 position) {
+		glm::mat4 out = matrix;
+		out[3][0] = position.x;
+		out[3][1] = position.y;
+		out[3][2] = position.z;
+		return out;
 	}
 
 	glm::quat getTransformRotation(const TransformComponent& transform) {
+		return getTransformMatrixRotation(transform.matrix);
+	}
+
+	void setTransformRotation(TransformComponent& transform, glm::quat rotation) {
+		transform.matrix = setTransformMatrixRotation(transform.matrix, rotation);
+	}
+
+	glm::quat getTransformMatrixRotation(const glm::mat4& matrix) {
 		glm::vec3 scale;
 		glm::quat rotation;
 		glm::vec3 translation;
 		glm::vec3 skew;
 		glm::vec4 perspective;
-		glm::decompose(transform.matrix, scale, rotation, translation, skew, perspective);
-		return glm::conjugate(rotation);
+		glm::decompose(matrix, scale, rotation, translation, skew, perspective);
+		return rotation;
 	}
 
-	void setTransformRotation(TransformComponent& transform, glm::quat rotation) {
+	glm::mat4 setTransformMatrixRotation(const glm::mat4& matrix, glm::quat rotation) {
 		glm::vec3 scale;
 		glm::quat oldRotation;
 		glm::vec3 translation;
 		glm::vec3 skew;
 		glm::vec4 perspective;
-		glm::decompose(transform.matrix, scale, oldRotation, translation, skew, perspective);
-		
-		transform.matrix *= glm::toMat4(glm::inverse(glm::conjugate(rotation)) * rotation);
+		glm::decompose(matrix, scale, oldRotation, translation, skew, perspective);
+
+		return matrix * glm::toMat4(glm::inverse(oldRotation) * rotation);
 	}
 
 	glm::vec3 getTransformScale(const TransformComponent& transform) {
+		return getTransformMatrixScale(transform.matrix);
+	}
+
+	void setTransformScale(TransformComponent& transform, glm::vec3 scale) {
+		transform.matrix = setTransformMatrixScale(transform.matrix, scale);
+	}
+
+	glm::vec3 getTransformMatrixScale(const glm::mat4& matrix) {
 		glm::vec3 scale;
 		glm::quat rotation;
 		glm::vec3 translation;
 		glm::vec3 skew;
 		glm::vec4 perspective;
-		glm::decompose(transform.matrix, scale, rotation, translation, skew, perspective);
+		glm::decompose(matrix, scale, rotation, translation, skew, perspective);
 
 		return scale;
 	}
 
-	void setTransformScale(TransformComponent& transform, glm::vec3 scale) {
+	glm::mat4 setTransformMatrixScale(const glm::mat4& matrix, glm::vec3 scale) {
 		glm::vec3 oldScale;
 		glm::quat rotation;
 		glm::vec3 translation;
 		glm::vec3 skew;
 		glm::vec4 perspective;
-		glm::decompose(transform.matrix, oldScale, rotation, translation, skew, perspective);
+		glm::decompose(matrix, oldScale, rotation, translation, skew, perspective);
 
-		transform.matrix = glm::scale(transform.matrix, scale - oldScale);
+		return glm::scale(matrix, scale / oldScale);
 	}
 
 }

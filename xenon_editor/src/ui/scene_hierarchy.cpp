@@ -27,19 +27,26 @@ namespace xe {
 		if (ImGui::BeginMenu("Add")) {
 			if (ImGui::MenuItem("Empty")) {
 				Entity entity = createEntity(scene);
+
 				entity.getComponent<TransformComponent>().parent = contextEntity;
+
 				selectedEntityID = entity.getComponent<IdentityComponent>().uuid;
 			}
 			if (ImGui::MenuItem("Sphere")) {
 				Entity entity = createEntity(scene, "Sphere");
 				entity.getComponent<TransformComponent>().parent = contextEntity;
-				entity.addComponent<ModelComponent>(loadModel("assets/models/0.1.sphere.glb"));
+				
+				ModelComponent& modelComponent = entity.addComponent<ModelComponent>();
+				setModelComponentModel(modelComponent, loadModel("assets/models/0.1.sphere.glb"));
+
 				selectedEntityID = entity.getComponent<IdentityComponent>().uuid;
 			}
 			if (ImGui::MenuItem("Light")) {
 				Entity entity = createEntity(scene, "Light");
+
 				entity.getComponent<TransformComponent>().parent = contextEntity;
 				entity.addComponent<PointLightComponent>(glm::vec3(10, 10, 10));
+
 				selectedEntityID = entity.getComponent<IdentityComponent>().uuid;
 			}
 

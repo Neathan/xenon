@@ -82,9 +82,11 @@ namespace xe {
 
 	Entity getEntityFromID(Scene* scene, UUID id);
 	glm::mat4 getWorldMatrix(Entity entity);
+	glm::mat4 getParentWorldMatrix(Entity entity);
 	glm::mat4 toLocalMatrix(glm::mat4 matrix, Entity entity);
 	
 	void renderScene(Scene* scene, const Renderer& renderer, const Camera& camera, const Environment& environment);
+	void updateSceneModels(Scene* scene, float delta);
 
 	void copyScene(Scene* source, Scene* target);
 	Scene* createCopy(Scene* scene);
@@ -106,11 +108,17 @@ namespace xe {
 
 	glm::vec3 getTransformPosition(const TransformComponent& transform);
 	void setTransformPosition(TransformComponent& transform, glm::vec3 position);
+	glm::vec3 getTransformMatrixPosition(const glm::mat4& matrix);
+	glm::mat4 setTransformMatrixPosition(const glm::mat4& matrix, glm::vec3 position);
 
 	glm::quat getTransformRotation(const TransformComponent& transform);
 	void setTransformRotation(TransformComponent& transform, glm::quat rotation);
+	glm::quat getTransformMatrixRotation(const glm::mat4& matrix);
+	glm::mat4 setTransformMatrixRotation(const glm::mat4& matrix, glm::quat rotation);
 
 	glm::vec3 getTransformScale(const TransformComponent& transform);
 	void setTransformScale(TransformComponent& transform, glm::vec3 scale);
+	glm::vec3 getTransformMatrixScale(const glm::mat4& matrix);
+	glm::mat4 setTransformMatrixScale(const glm::mat4& matrix, glm::vec3 scale);
 
 }

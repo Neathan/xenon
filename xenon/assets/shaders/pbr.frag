@@ -50,8 +50,6 @@ uniform bool usingAttribNormal;
 uniform bool usingAttribTexCoord0;
 uniform bool usingAttribTexCoord1;  // TODO: implement
 uniform bool usingAttribColor0;  // TODO: implement
-uniform bool usingAttribJoints0;  // TODO: implement
-uniform bool usingAttribWeights0;  // TODO: implement
 
 
 //---------------------------------------------------------------

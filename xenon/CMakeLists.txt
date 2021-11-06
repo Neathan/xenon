@@ -43,6 +43,7 @@ add_library(xenon STATIC
 	"src/xenon/graphics/primitive.h"
 	"src/xenon/graphics/primitives.cpp"
 	"src/xenon/graphics/primitives.h"
+	"src/xenon/graphics/animation.h"
 	"src/xenon/graphics/renderer.cpp"
 	"src/xenon/graphics/renderer.h"
 	"src/xenon/graphics/shader.cpp"
@@ -58,7 +59,7 @@ add_library(xenon STATIC
 	"src/xenon/scene/scene.cpp"
 	"src/xenon/scripting/script.h"
 	"src/xenon/scripting/script.cpp"
-	)
+	 "src/xenon/graphics/animation.cpp" "src/xenon/graphics/skin.h")
 
 
 target_compile_definitions(xenon PUBLIC GLFW_INCLUDE_NONE)

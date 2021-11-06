@@ -31,7 +31,7 @@ namespace xe {
 	//----------------------------------------
 
 	void setObjectID(const Renderer& renderer, UUID id);
-	void renderModel(const Renderer& renderer, const Model& model, const glm::mat4& transform, const Camera& camera, bool ignoreMaterials = false);
+	void renderModel(const Renderer& renderer, const ModelComponent& modelComponent, const glm::mat4& transform, const Camera& camera, bool ignoreMaterials = false);
 	void renderEnvironment(Renderer* renderer, const Environment& environment, const Camera& camera);
 
 	void renderGrid(Shader* shader, Model* model, const Camera& camera);
