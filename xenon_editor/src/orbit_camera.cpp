@@ -9,12 +9,11 @@
 namespace xe {
 
 	void updateCameraTransform(OrbitCamera& camera) {
-		camera.transform = glm::mat4(1.0f);
-		camera.transform = glm::translate(camera.transform, camera.center);
-		camera.transform = glm::rotate(camera.transform, glm::radians(camera.yaw), glm::vec3(0, 1, 0));
-		camera.transform = glm::rotate(camera.transform, glm::radians(camera.pitch), glm::vec3(1, 0, 0));
-		camera.transform = glm::translate(camera.transform, glm::vec3(0, 0, camera.distance));
-		camera.inverseTransform = glm::inverse(camera.transform);
+		camera.offsetTransform = glm::mat4(1.0f);
+		camera.offsetTransform = glm::translate(camera.offsetTransform, camera.center);
+		camera.offsetTransform = glm::rotate(camera.offsetTransform, glm::radians(camera.yaw), glm::vec3(0, 1, 0));
+		camera.offsetTransform = glm::rotate(camera.offsetTransform, glm::radians(camera.pitch), glm::vec3(1, 0, 0));
+		camera.offsetTransform = glm::translate(camera.offsetTransform, glm::vec3(0, 0, camera.distance));
 	}
 
 	OrbitCamera createOrbitCamera(int width, int height, float near, float far) {

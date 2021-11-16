@@ -69,8 +69,15 @@ int main() {
 	// SECTION: TESTING AREA
 	//----------------------------------------
 
-	TextureParameters textureParams = TextureParameters{ GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE };
-	TextureParameters radianceParams = TextureParameters{ GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE };
+	TextureParameters textureParams = TextureParameters{
+		GL_LINEAR, GL_LINEAR,
+		GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE
+	};
+	TextureParameters radianceParams = TextureParameters{
+		GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR,
+		GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE
+	};
+	
 	Environment environment;
 	environment.environmentCubemap = loadKTXTexture("assets/environments/output_skybox.ktx", textureParams);
 	environment.irradianceMap = loadKTXTexture("assets/environments/output_iem.ktx", textureParams);
@@ -115,12 +122,12 @@ int main() {
 		}
 
 		// Camera
-		if (editorData->sceneViewportHovered) {
+		if (editorData->playState == xe::PlayModeState::Edit && editorData->sceneViewportHovered) {
 			updateOrbitCamera(editorData->camera, ts);
 		}
 
 		// Scripts & Animations
-		updateSceneModels(getActiveScene(editorData), ts.deltaTime);
+		updateSceneModels(getActiveScene(editorData), editorData->playState == PlayModeState::Play, ts.deltaTime);
 		if (editorData->playState == PlayModeState::Play) {
 			updateScriptEntities(editorData->scriptContext, ts.deltaTime);
 		}
@@ -129,20 +136,54 @@ int main() {
 		// SECTION: Render
 		//----------------------------------------
 
-		bindFramebuffer(*editorData->framebuffer);
-		clearFramebuffer(*editorData->framebuffer, *editorData->renderer->shader);
-		renderScene(getActiveScene(editorData), *editorData->renderer, editorData->camera, environments[currentEnvironment].environment);
-		// TODO: Make this nicer
-		// Disable rendering to objectID attachment
-		glNamedFramebufferDrawBuffer(editorData->framebuffer->frambufferID, GL_COLOR_ATTACHMENT0);
-		//renderEnvironment(editorData->renderer, environments[currentEnvironment].environment, editorData->camera);
-		renderGrid(editorData->gridShader, editorData->gridModel, editorData->camera);
-		// Re-enable rendering to objectID attachment
-		glNamedFramebufferDrawBuffers(editorData->framebuffer->frambufferID, editorData->framebuffer->colorBuffers.size(), editorData->framebuffer->colorBuffers.data());
-		unbindFramebuffer();
-		// Blit framebuffer data into displayedFramebuffer (resolve AA data)
-		blitFramebuffers(editorData->framebuffer, editorData->displayedFramebuffer);
-		
+		// Render game view
+		bool isGameShown = getActiveScene(editorData)->mainCameraEntityID.isValid()
+			&& editorData->gameViewportSize.x != -1
+			&& editorData->gameViewportSize.y != -1;
+
+		if (isGameShown) {
+			glViewport(0, 0, editorData->gameViewportSize.x, editorData->gameViewportSize.y);
+			bindFramebuffer(*editorData->gameSourceFramebuffer);
+			{
+				clearFramebuffer(*editorData->gameSourceFramebuffer, *editorData->renderer->shader);
+
+				renderScene(getActiveScene(editorData), *editorData->renderer, environments[currentEnvironment].environment);
+			}
+			unbindFramebuffer();
+
+			// Blit framebuffer data into displayedFramebuffer (resolve AA data)
+			blitFramebuffers(editorData->gameSourceFramebuffer, editorData->gameFramebuffer);
+		}
+
+		// Render editor view
+		bool isEditorShown = editorData->sceneViewportSize.x != -1 && editorData->sceneViewportSize.y != -1;
+
+		if(isEditorShown){
+			glViewport(0, 0, editorData->sceneViewportSize.x, editorData->sceneViewportSize.y);
+			bindFramebuffer(*editorData->editorSourceFramebuffer);
+			{
+				clearFramebuffer(*editorData->editorSourceFramebuffer, *editorData->renderer->shader);
+
+				renderSceneCustomCamera(getActiveScene(editorData), *editorData->renderer, environments[currentEnvironment].environment, editorData->camera);
+
+				// Disable rendering to objectID attachment
+				glNamedFramebufferDrawBuffer(editorData->editorSourceFramebuffer->frambufferID, GL_COLOR_ATTACHMENT0);
+
+				//renderEnvironment(editorData->renderer, environments[currentEnvironment].environment, editorData->camera);
+				renderGrid(editorData->gridShader, editorData->gridModel, editorData->camera);
+
+				// Re-enable rendering to objectID attachment
+				glNamedFramebufferDrawBuffers(
+					editorData->editorSourceFramebuffer->frambufferID,
+					editorData->editorSourceFramebuffer->colorBuffers.size(),
+					editorData->editorSourceFramebuffer->colorBuffers.data()
+				);
+			}
+			unbindFramebuffer();
+			
+			// Blit framebuffer data into displayedFramebuffer (resolve AA data)
+			blitFramebuffers(editorData->editorSourceFramebuffer, editorData->editorFramebuffer);
+		}
 
 		//----------------------------------------
 		// SECTION: Invoke UI
@@ -191,10 +232,25 @@ int main() {
 		if (editorData->sceneViewportSizeChanged) {
 			editorData->sceneViewportSizeChanged = false;
 			if (editorData->sceneViewportSize.x > 0 && editorData->sceneViewportSize.y > 0) {
-				glViewport(0, 0, editorData->sceneViewportSize.x, editorData->sceneViewportSize.y);
-				updateFramebufferSize(editorData->framebuffer, editorData->sceneViewportSize.x, editorData->sceneViewportSize.y);
-				updateFramebufferSize(editorData->displayedFramebuffer, editorData->sceneViewportSize.x, editorData->sceneViewportSize.y);
+				updateFramebufferSize(editorData->editorSourceFramebuffer, editorData->sceneViewportSize.x, editorData->sceneViewportSize.y);
+				updateFramebufferSize(editorData->editorFramebuffer, editorData->sceneViewportSize.x, editorData->sceneViewportSize.y);
 				updateOrbitCameraProjection(editorData->camera, editorData->sceneViewportSize.x, editorData->sceneViewportSize.y);
+			}
+		}
+
+		if (editorData->gameViewportSizeChanged) {
+			editorData->gameViewportSizeChanged = false;
+			if (editorData->gameViewportSize.x > 0 && editorData->gameViewportSize.y > 0) {
+				updateFramebufferSize(editorData->gameSourceFramebuffer, editorData->gameViewportSize.x, editorData->gameViewportSize.y);
+				updateFramebufferSize(editorData->gameFramebuffer, editorData->gameViewportSize.x, editorData->gameViewportSize.y);
+
+				Scene* scene = getActiveScene(editorData);
+				if (scene->mainCameraEntityID.isValid()) {
+					CameraComponent& camera = getEntityFromID(scene, scene->mainCameraEntityID).getComponent<CameraComponent>();
+					camera.width = editorData->gameViewportSize.x;
+					camera.height = editorData->gameViewportSize.y;
+					updateCameraProjection(camera);
+				}
 			}
 		}
 

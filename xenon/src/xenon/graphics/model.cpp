@@ -40,17 +40,33 @@ namespace xe {
 		}
 	}
 
-	bool updateAnimation(ModelComponent& modelComponent, float delta) {
-		XE_ASSERT(modelComponent.animation.animationIndex != -1);
-
+	bool updateAnimation(ModelComponent& modelComponent, bool isPlaying, float delta) {
 		ModelAnimation& modelAnimation = modelComponent.animation;
 
-		modelAnimation.time += delta;
+		bool updatedValues = false;
+		
+		// Check if the animation has been modified
+		if (modelAnimation.isDirty) {
+			int index = modelAnimation.animationIndex;
+			// Reset animation state data
+			modelAnimation = ModelAnimation{ index };
+			// Reset local positions
+			modelComponent.currentLocalPositions = modelComponent.model->localPositions;
+			updatedValues = true;
+		}
+		
+		// Check if we have a valid animation
+		if (modelAnimation.animationIndex == -1) {
+			return updatedValues;
+		}
+
+		// TODO: Update value once only when not playing
+		if (isPlaying) {
+			modelAnimation.time += delta;
+		}
 
 		const Model& model = *modelComponent.model;
 		const Animation& animation = modelComponent.model->animations.at(modelAnimation.animationIndex);
-
-		bool updatedValues = false;
 
 		for (size_t i = 0; i < model.nodes.size(); ++i) {
 			const ModelNode& node = model.nodes[i];

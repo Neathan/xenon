@@ -46,6 +46,8 @@ namespace xe {
 		int animationIndex = -1;
 		float time = 0.0f;
 
+		bool isDirty = false;
+
 		int animationWeightStep = 0;
 		int animationTranslationStep = 0;
 		int animationRotationStep = 0;
@@ -64,7 +66,7 @@ namespace xe {
 
 	void setModelComponentModel(ModelComponent& modelComponent, Model* model);
 
-	bool updateAnimation(ModelComponent& modelComponent, float delta);
+	bool updateAnimation(ModelComponent& modelComponent, bool isPlaying, float delta);
 
 	void updateInstanceTransformation(ModelComponent& modelComponent, const glm::mat4& transform);
 

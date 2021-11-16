@@ -165,17 +165,23 @@ namespace xe {
 			// Animation
 			if (modelComponent.model) {
 				beginField("Animation index");
-				ImGui::InputInt("###Animation index", &modelComponent.animation.animationIndex);
+				if (ImGui::DragInt("###Animation index", &modelComponent.animation.animationIndex, 1, -1, modelComponent.model->animations.size() - 1)) {
+					modelComponent.animation.isDirty = true;
+				}
 				endField();
 			}
+		}
+		endComponent(open);
 
-			// Material
-			if (modelComponent.model) {
+
+		// Material
+		if (modelComponent.model && !modelComponent.model->materials.empty()) {
+			bool open = beginComponent("Materials");
+			if (open) {
 				for (size_t i = 0; i < modelComponent.model->materials.size(); ++i) {
 					auto& material = modelComponent.model->materials[i];
 					ImGui::BeginGroup();
 					ImGui::PushID(i);
-					ImGui::Text(material.name.c_str());
 
 					beginField("Name");
 					ImGui::InputText("###Name", &material.name);
@@ -239,22 +245,114 @@ namespace xe {
 					ImGui::EndGroup();
 				}
 			}
+			endComponent(open);
+		}
+	}
 
+	void drawCameraComponent(EditorData* data, Entity entity, CameraComponent& cameraComponent) {
+		bool open = beginComponent("Camera");
+		if (open) {
+			beginField("Main camera");
+			Scene* scene = getActiveScene(data);
+			Camera& camera = cameraComponent.camera;
+			UUID entityID = getEntityID(entity);
+			bool isMainCamera = scene->mainCameraEntityID == entityID;
+
+			if (ImGui::Checkbox("###Main camera", &isMainCamera)) {
+				if (isMainCamera) {
+					scene->mainCameraEntityID = entityID;
+				}
+				else {
+					scene->mainCameraEntityID = UUID::None();
+				}
+			}
+			endField();
+
+			beginField("FOV");
+			ImGui::DragFloat("###FOV", &cameraComponent.fov, 1.0f, 10, 180);
+			endField();
+
+			beginField("Width");
+			ImGui::InputInt("###Width", &cameraComponent.width);
+			endField();
+
+			beginField("Height");
+			ImGui::InputInt("###Height", &cameraComponent.height);
+			endField();
+
+			// TODO: Projection type
 		}
 		endComponent(open);
+	}
+
+	void drawComponentSelector(Entity entity) {
+		static std::vector<std::string> componentNames = {
+			"ModelComponent",
+			"ScriptComponent",
+			"PointLightComponent",
+			"CameraComponent"
+		};
+		if (ImGui::BeginPopup("ComponentSelector")) {
+			static std::string selected = "";
+			static ImGuiTextFilter filter;
+			static std::string errorMsg = "";
+			filter.Draw("###Filter");
+
+			if (ImGui::BeginListBox("###ComponentList")) {
+				for (int i = 0; i < componentNames.size(); ++i) {
+					if (filter.PassFilter(componentNames[i].c_str())) {
+						bool isSelected = componentNames[i] == selected;
+						if (ImGui::Selectable(componentNames[i].c_str(), isSelected)) {
+							selected = componentNames[i];
+							errorMsg = "";
+						}
+					}
+				}
+				ImGui::EndListBox();
+			}
+
+			if (ImGui::Button("Add")) {
+				errorMsg = "";
+
+				if (!selected.empty()) {
+					if (selected == "ModelComponent" && !entity.hasComponent<ModelComponent>()) {
+						entity.addComponent<ModelComponent>();
+					}
+					else if (selected == "ScriptComponent" && !entity.hasComponent<ScriptComponent>()) {
+						entity.addComponent<ScriptComponent>();
+					}
+					else if (selected == "PointLightComponent" && !entity.hasComponent<PointLightComponent>()) {
+						entity.addComponent<PointLightComponent>();
+					}
+					else if (selected == "CameraComponent" && !entity.hasComponent<CameraComponent>()) {
+						entity.addComponent<CameraComponent>();
+					}
+					ImGui::CloseCurrentPopup();
+					selected = "";
+				}
+				else {
+					errorMsg = "Need to select component";
+				}
+			}
+			ImGui::SameLine();
+			ImGui::TextColored(ImVec4(1, 0, 0, 1), errorMsg.c_str());
+
+			ImGui::EndPopup();
+		}
 	}
 
 	void drawInspector(EditorData* data) {
 
 		if (ImGui::Begin("Inspector")) {
+			// Components
 			if (data->selectedEntityID.isValid()) {
 				Entity entity = getEntityFromID(getActiveScene(data), data->selectedEntityID);
 				drawIdentityComponent(entity.getComponent<IdentityComponent>());
 
 				drawTransformComponent(entity.getComponent<TransformComponent>());
 
-				if (entity.hasComponent<PointLightComponent>()) {
-					drawPointLightComponent(entity.getComponent<PointLightComponent>());
+				if (entity.hasComponent<CameraComponent>()) {
+					drawCameraComponent(data, entity, entity.getComponent<CameraComponent>());
 				}
 				if (entity.hasComponent<ModelComponent>()) {
 					drawModelComponent(data->assetManager, entity.getComponent<ModelComponent>());
@@ -262,14 +360,16 @@ namespace xe {
 				if (entity.hasComponent<ScriptComponent>()) {
 					drawScriptComponent(data, entity.getComponent<ScriptComponent>());
 				}
+				if (entity.hasComponent<PointLightComponent>()) {
+					drawPointLightComponent(entity.getComponent<PointLightComponent>());
+				}
 
-				if(ImGui::Button("Add Script")) {
-					entity.addComponent<ScriptComponent>("TestScripts.TestScrip");
-				}
 				if (ImGui::Button("Add component")) {
-					entity.addComponent<ModelComponent>();
+					ImGui::OpenPopup("ComponentSelector");
 				}
+				drawComponentSelector(entity);
 			}
+			// Asset
 			else if (data->selectedAsset != nullptr) {
 				ImGui::Text(data->selectedAsset->runtimeData.filename.c_str());
 				ImGui::Separator();

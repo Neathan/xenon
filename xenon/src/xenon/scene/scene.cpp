@@ -19,13 +19,19 @@ namespace xe {
 		return entity.getComponent<IdentityComponent>().uuid;
 	}
 
-
 	//----------------------------------------
 	// SECTION: Scene functions
 	//----------------------------------------
 
+	static void onCameraComponentConstruct(entt::registry& registry, entt::entity entityHandle) {
+		updateCameraProjection(registry.get<CameraComponent>(entityHandle));
+	}
+
 	Scene* createScene() {
-		return new Scene();
+		Scene* scene = new Scene();
+		scene->registry.emplace<SceneComponent>(scene->registry.create(), scene);
+		scene->registry.on_construct<SceneComponent>().connect<&onCameraComponentConstruct>();
+		return scene;
 	}
 
 	void destroyScene(Scene* scene) {
@@ -99,7 +105,14 @@ namespace xe {
 		return glm::inverse(getWorldMatrix(getEntityFromID(entity.scene, transformComponent.parent))) * matrix;
 	}
 
-	void renderScene(Scene* scene, const Renderer& renderer, const Camera& camera, const Environment& environment) {
+	void renderScene(Scene* scene, const Renderer& renderer, const Environment& environment) {
+		Entity cameraEntity = getEntityFromID(scene, scene->mainCameraEntityID);
+		Camera& camera = cameraEntity.getComponent<CameraComponent>().camera;
+		glm::mat4 cameraTransform = getWorldMatrix(cameraEntity);
+		renderSceneCustomCamera(scene, renderer, environment, camera, cameraTransform);
+	}
+
+	void renderSceneCustomCamera(Scene* scene, const Renderer& renderer, const Environment& environment, const Camera& camera, const glm::mat4& cameraTransform) {
 		// Load lights
 		auto lightView = scene->registry.view<PointLightComponent, IdentityComponent, TransformComponent>();
 		int index = 0;
@@ -114,6 +127,9 @@ namespace xe {
 		glBindTextureUnit(6, environment.radianceMap->textureID);
 		glBindTextureUnit(7, renderer.brdfLUT->textureID);
 
+		// Load camera
+		loadCamera(*renderer.shader, camera, cameraTransform);
+
 		unbindShader();
 
 		// Render models
@@ -122,19 +138,17 @@ namespace xe {
 			if (modelComponent.model) {
 				if(modelComponent.wireframe) glPolygonMode(GL_FRONT, GL_LINE);
 				setObjectID(renderer, identityComponent.uuid);
-				renderModel(renderer, modelComponent, getWorldMatrix({ entity, scene }), camera);
+				renderModel(renderer, modelComponent, getWorldMatrix({ entity, scene }));
 				if (modelComponent.wireframe) glPolygonMode(GL_FRONT, GL_FILL);
 			}
 		}
 	}
 
-	void updateSceneModels(Scene* scene, float delta) {
+	void updateSceneModels(Scene* scene, bool isPlaying, float delta) {
 		auto modelView = scene->registry.view<ModelComponent>();
 		for (auto [entity, modelComponent] : modelView.each()) {
 			if (modelComponent.model) {
-				if (modelComponent.animation.animationIndex != -1) {
-					updateAnimation(modelComponent, delta);
-				}
+				updateAnimation(modelComponent, isPlaying, delta);
 				updateInstanceTransformation(modelComponent, getParentWorldMatrix({ entity, scene }));
 			}
 		}
@@ -158,6 +172,9 @@ namespace xe {
 	}
 
 	void copyScene(Scene* source, Scene* target) {
+		// Copy main camera setting
+		target->mainCameraEntityID = source->mainCameraEntityID;
+
 		// Copy entity map
 		auto identityComponents = source->registry.view<IdentityComponent>();
 		for (auto& [entity, identityComponent] : identityComponents.each()) {
@@ -171,6 +188,7 @@ namespace xe {
 		copyComponent<ModelComponent>(source, target);
 		copyComponent<ScriptComponent>(source, target);
 		copyComponent<PointLightComponent>(source, target);
+		copyComponent<CameraComponent>(source, target);
 
 		// Load script entities
 		loadSceneScriptEntities(getActiveContext(), target);

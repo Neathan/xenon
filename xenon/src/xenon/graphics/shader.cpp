@@ -200,5 +200,13 @@ namespace xe {
 		loadVec3(shader, ("pointLights[" + std::to_string(index) + "].position").c_str(), position);
 		loadVec3(shader, ("pointLights[" + std::to_string(index) + "].color").c_str(), light.color);
 	}
+
+	void loadCamera(const Shader& shader, const Camera& camera, const glm::mat4& transform) {
+		loadMat4(shader, "projection", camera.projection);
+		loadMat4(shader, "view", glm::inverse(camera.offsetTransform * transform));
+		loadVec3(shader, "camera.position", camera.offsetTransform[3]);
+		loadVec3(shader, "camera.direction", camera.offsetTransform[2]);
+	}
+
 }
 

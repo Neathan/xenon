@@ -66,6 +66,7 @@ namespace xe {
 		UUID uuid;
 		entt::registry registry;
 		std::unordered_map<UUID, Entity> entityMap;
+		UUID mainCameraEntityID = UUID::None();
 	};
 
 	Scene* createScene();
@@ -85,8 +86,9 @@ namespace xe {
 	glm::mat4 getParentWorldMatrix(Entity entity);
 	glm::mat4 toLocalMatrix(glm::mat4 matrix, Entity entity);
 	
-	void renderScene(Scene* scene, const Renderer& renderer, const Camera& camera, const Environment& environment);
-	void updateSceneModels(Scene* scene, float delta);
+	void renderScene(Scene* scene, const Renderer& renderer, const Environment& environment);
+	void renderSceneCustomCamera(Scene* scene, const Renderer& renderer, const Environment& environment, const Camera& camera, const glm::mat4& cameraTransform = glm::mat4(1.0f));
+	void updateSceneModels(Scene* scene, bool isPlaying, float delta);
 
 	void copyScene(Scene* source, Scene* target);
 	Scene* createCopy(Scene* scene);
@@ -94,6 +96,10 @@ namespace xe {
 	//----------------------------------------
 	// SECTION: Components
 	//----------------------------------------
+
+	struct SceneComponent {
+		Scene* scene;
+	};
 
 	struct IdentityComponent {
 		UUID uuid = UUID();

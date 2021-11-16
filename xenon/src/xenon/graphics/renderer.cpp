@@ -45,16 +45,12 @@ namespace xe {
 		unbindShader();
 	}
 
-	void renderModel(const Renderer& renderer, const ModelComponent& modelComponent, const glm::mat4& transform, const Camera& camera, bool ignoreMaterials) {
+	void renderModel(const Renderer& renderer, const ModelComponent& modelComponent, const glm::mat4& transform, bool ignoreMaterials) {
 		const Model& model = *modelComponent.model;
 		
 		int primitiveCounter = 0;
 
 		bindShader(*renderer.shader);
-		loadMat4(*renderer.shader, "projection", camera.projection);
-		loadMat4(*renderer.shader, "view", camera.inverseTransform);
-		loadVec3(*renderer.shader, "camera.position", camera.transform[3]);
-		loadVec3(*renderer.shader, "camera.direction", camera.transform[2]);
 
 		for (int i = 0; i < model.nodes.size(); ++i) {
 			const ModelNode& node = model.nodes[i];
@@ -102,14 +98,14 @@ namespace xe {
 		unbindShader();
 	}
 
-	void renderEnvironment(Renderer* renderer, const Environment& environment, const Camera& camera) {
+	void renderEnvironment(Renderer* renderer, const Environment& environment, const Camera& camera, const glm::mat4& cameraTransform) {
 		if (!renderer->envCubeModel) {
 			renderer->envCubeModel = generateCubeModel(glm::vec3(1.0f));
 		}
 
 		bindShader(*renderer->envShader);
 		loadMat4(*renderer->envShader, "projection", camera.projection);
-		loadMat4(*renderer->envShader, "view", camera.inverseTransform);
+		loadMat4(*renderer->envShader, "view", glm::inverse(camera.offsetTransform * cameraTransform));
 
 		glBindTextureUnit(0, environment.environmentCubemap->textureID);
 
@@ -124,10 +120,10 @@ namespace xe {
 		unbindShader();
 	}
 
-	void renderGrid(Shader* shader, Model* model, const Camera& camera) {
+	void renderGrid(Shader* shader, Model* model, const Camera& camera, const glm::mat4& cameraTransform) {
 		bindShader(*shader);
 		loadMat4(*shader, "projection", camera.projection);
-		loadMat4(*shader, "view", camera.inverseTransform);
+		loadMat4(*shader, "view", glm::inverse(camera.offsetTransform * cameraTransform));
 		loadFloat(*shader, "near", camera.near);
 		loadFloat(*shader, "far", camera.far);
 

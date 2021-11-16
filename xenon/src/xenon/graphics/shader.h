@@ -5,6 +5,7 @@
 
 #include "xenon/graphics/material.h"
 #include "xenon/graphics/light.h"
+#include "xenon/graphics/camera.h"
 
 namespace xe {
 
@@ -35,5 +36,6 @@ namespace xe {
 
 	void loadMaterial(const Shader& shader, const Material& material);
 	void loadLight(const Shader& shader, const glm::vec3& position, const PointLightComponent& light, int index);
+	void loadCamera(const Shader& shader, const Camera& camera, const glm::mat4& transform = glm::mat4(1.0f));
 
 }

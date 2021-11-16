@@ -24,8 +24,10 @@ namespace xe {
 		Shader* gridShader = nullptr;
 		Renderer* renderer = nullptr;
 
-		Framebuffer* framebuffer = nullptr;
-		Framebuffer* displayedFramebuffer = nullptr;
+		Framebuffer* editorSourceFramebuffer = nullptr;
+		Framebuffer* editorFramebuffer = nullptr;
+		Framebuffer* gameSourceFramebuffer = nullptr;
+		Framebuffer* gameFramebuffer = nullptr;
 
 		Model* gridModel = nullptr;
 
@@ -42,11 +44,17 @@ namespace xe {
 		Directory* assetViewerDirectory = nullptr;
 		Asset* selectedAsset = nullptr;
 
-		// SECTION: Viewport (runtime)
+		// SECTION: Scene Viewport (runtime)
 		ImVec2 sceneViewportPos;
 		ImVec2 sceneViewportSize;
 		bool sceneViewportSizeChanged = false;
 		bool sceneViewportHovered = false;
+
+		// SECTION: Scene Viewport (runtime)
+		ImVec2 gameViewportPos;
+		ImVec2 gameViewportSize;
+		bool gameViewportSizeChanged = false;
+		bool gameViewportHovered = false;
 		
 		// SECTION: Editing (runtime)
 		UUID selectedEntityID = UUID::None();

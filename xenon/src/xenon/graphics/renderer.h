@@ -31,10 +31,10 @@ namespace xe {
 	//----------------------------------------
 
 	void setObjectID(const Renderer& renderer, UUID id);
-	void renderModel(const Renderer& renderer, const ModelComponent& modelComponent, const glm::mat4& transform, const Camera& camera, bool ignoreMaterials = false);
-	void renderEnvironment(Renderer* renderer, const Environment& environment, const Camera& camera);
+	void renderModel(const Renderer& renderer, const ModelComponent& modelComponent, const glm::mat4& transform, bool ignoreMaterials = false);
+	void renderEnvironment(Renderer* renderer, const Environment& environment, const Camera& camera, const glm::mat4& cameraTransform = glm::mat4(1.0f));
 
-	void renderGrid(Shader* shader, Model* model, const Camera& camera);
+	void renderGrid(Shader* shader, Model* model, const Camera& camera, const glm::mat4& cameraTransform = glm::mat4(1.0f));
 
 	//----------------------------------------
 	// SECTION: Framebuffer renderer
