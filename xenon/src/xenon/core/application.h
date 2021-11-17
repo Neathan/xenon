@@ -12,7 +12,6 @@
 namespace xe {
 
 	struct Application {
-		// "Definitions"
 		GLFWwindow* window;
 		std::string title;
 		int width, height;

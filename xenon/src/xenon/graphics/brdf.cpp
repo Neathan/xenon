@@ -12,7 +12,7 @@ namespace xe {
 		Framebuffer* framebuffer = createFramebuffer(width, height);
 
 		TextureParameters params = TextureParameters{ GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE };
-		framebuffer->attachments.insert({ GL_COLOR_ATTACHMENT0, FramebufferAttachment{ GL_COLOR_ATTACHMENT0, TextureFormat::RGB_FLOAT, params } });
+		framebuffer->attachments.insert({ GL_COLOR_ATTACHMENT0, FramebufferAttachment{ GL_COLOR_ATTACHMENT0, GL_RGB16F, params } });
 
 		buildFramebuffer(framebuffer);
 

@@ -18,12 +18,16 @@ namespace ImGui {
 
 	template<typename T>
 	bool InputAsset(const char* label, xe::AssetManager* manager, xe::AssetType acceptedType, T* originalAsset, T** targetAsset) {
+		// Asset path
 		ImGui::InputText(label, originalAsset ? &originalAsset->metadata.path : &std::string(), ImGuiInputTextFlags_ReadOnly);
+
+		// Drop target accepting specified type
 		if (ImGui::BeginDragDropTarget()) {
 			auto data = ImGui::AcceptDragDropPayload("asset");
 			if (data) {
 				xe::UUID handle = *(xe::UUID*)data->Data;
 				xe::Asset* asset = xe::getAsset<xe::Asset>(manager, handle);
+
 				if (asset->metadata.type == acceptedType) {
 					*targetAsset = static_cast<T*>(asset);
 					return true;

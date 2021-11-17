@@ -23,8 +23,12 @@ namespace xe {
 		}
 	}
 
-	void drawHirarchyContextMenuContent(Scene* scene, UUID contextEntity, UUID& selectedEntityID) {
+	void drawHirarchyContextMenuContent(EditorData* data, UUID contextEntity) {
 		if (ImGui::BeginMenu("Add")) {
+
+			Scene* scene = getActiveScene(data);
+			UUID& selectedEntityID = data->selectedEntityID;
+
 			if (ImGui::MenuItem("Empty")) {
 				Entity entity = createEntity(scene);
 
@@ -37,7 +41,7 @@ namespace xe {
 				entity.getComponent<TransformComponent>().parent = contextEntity;
 				
 				ModelComponent& modelComponent = entity.addComponent<ModelComponent>();
-				setModelComponentModel(modelComponent, loadModel("assets/models/0.1.sphere.glb"));
+				setModelComponentModel(modelComponent, loadModel(data->assetManager, "assets/models/0.1.sphere.glb"));
 
 				selectedEntityID = entity.getComponent<IdentityComponent>().uuid;
 			}
@@ -54,8 +58,11 @@ namespace xe {
 		}
 	}
 
-	void drawHierarchyItem(Scene* scene, UUID id, const std::map<UUID, std::vector<UUID>>& children, std::vector<MoveAction>& moveActions, UUID& selectedItem, bool isRoot = false) {
+	void drawHierarchyItem(EditorData* data, UUID id, const std::map<UUID, std::vector<UUID>>& children, std::vector<MoveAction>& moveActions, bool isRoot = false) {
 		ImGui::PushID(id); // Avoid colliding names
+
+		Scene* scene = getActiveScene(data);
+		UUID& selectedEntityID = data->selectedEntityID;
 
 		IdentityComponent& identity = getEntityFromID(scene, id).getComponent<IdentityComponent>();
 
@@ -68,14 +75,14 @@ namespace xe {
 		else {
 			flags |= ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_DefaultOpen;
 		}
-		if (selectedItem == id) {
+		if (selectedEntityID == id) {
 			flags |= ImGuiTreeNodeFlags_Selected;
 		}
 
 		bool open = ImGui::TreeNodeEx(identity.name.c_str(), flags);
 
 		if (ImGui::BeginPopupContextItem("hierarchyContextMenu")) {
-			drawHirarchyContextMenuContent(scene, id, selectedItem);
+			drawHirarchyContextMenuContent(data, id);
 			ImGui::EndPopup();
 		}
 
@@ -89,14 +96,14 @@ namespace xe {
 
 		// Selection
 		if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
-			selectedItem = id;
+			selectedEntityID = id;
 		}
 
 		// Draw children
 		if (open) {
 			if (hasChildren) {
 				for (const auto& child : children.at(id)) {
-					drawHierarchyItem(scene, child, children, moveActions, selectedItem);
+					drawHierarchyItem(data, child, children, moveActions);
 				}
 			}
 			ImGui::TreePop();
@@ -115,11 +122,13 @@ namespace xe {
 		isRelationRecursive(scene, source, getEntityFromID(scene, parent).getComponent<TransformComponent>().parent);
 	}
 
-	void drawHierarchy(Scene* scene, UUID& selectedItem) {
+	void drawHierarchy(EditorData* data) {
 		// Push style color so selected item is visible
 		ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.25f, 0.25f, 0.25f, 1.00f));
 
-		if (ImGui::Begin("Scene heirarchy")) {
+		Scene* scene = getActiveScene(data);
+
+		if (ImGui::Begin("Scene hierarchy")) {
 			auto view = scene->registry.view<IdentityComponent, TransformComponent>();
 
 			std::map<UUID, std::vector<UUID>> children;
@@ -137,13 +146,13 @@ namespace xe {
 			}
 
 			for (const UUID& id : roots) {
-				drawHierarchyItem(scene, id, children, moveActions, selectedItem, true);
+				drawHierarchyItem(data, id, children, moveActions, true);
 			}
 
 			ImGui::Dummy(ImGui::GetContentRegionAvail());
 			drawHierarchyItemPayloadTarget(UUID::None(), moveActions);
 			if (ImGui::BeginPopupContextItem("hierarchyContextMenu")) {
-				drawHirarchyContextMenuContent(scene, UUID::None(), selectedItem);
+				drawHirarchyContextMenuContent(data, UUID::None());
 				ImGui::EndPopup();
 			}
 

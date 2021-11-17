@@ -13,42 +13,18 @@ namespace xe {
 	// SECTION: Texture
 	//----------------------------------------
 
-	/*
-		ALBEDO = 0,
-		METALLIC_ROUGHNESS = 1,
-		NORMAL = 2,
-		AO = 3,
-		EMISSIVE = 4,
-		IRRADIANCE_CUBEMAP = 5,
-		RADIANCE_CUBEMAP = 6,
-		BRDF_LUT = 7,
+	struct TextureDataInfo {
+		int width;
+		int height;
+		int channels;
+		GLenum format;
+		GLenum type;
+	};
 
-		IBL_SOURCE = 10,
-	*/
-
-	/*enum class TextureType : unsigned int {
-		RGB,
-		RGBA,
-		FLOAT,
-		RED,
-
-		LAST = RED
-	};*/
-
-	enum class TextureFormat : GLenum {
-		RED = 0,
-		RGB = 1,
-		RGBA = 2,
-
-		RGB_FLOAT = 3,
-		RGBA_FLOAT = 4,
-
-		SRGB = 5,
-		SRGBA = 6,
-
-		DEPTH = 7,
-
-		UNKNOWN = -1
+	struct TextureInfo {
+		int width;
+		int height;
+		GLenum format;
 	};
 
 	struct TextureParameters {
@@ -61,47 +37,39 @@ namespace xe {
 
 	struct Texture : Asset {
 		const GLuint textureID;
+		const TextureInfo info;
 		const TextureParameters params;
-
-		const int width;
-		const int height;
-		const int channels;
-		const TextureFormat format;
 	};
 
-	/*
-	Texture* loadTexture(const std::string& path, TextureType type = TextureType::GENERIC_RGBA, TextureFormat format = TextureFormat::RGBA, const TextureParameters& params = TextureParameters{});
-	Texture* loadTexture(const unsigned char* data, int width, int height, int channels, TextureType type, TextureFormat format = TextureFormat::RGBA, const TextureParameters& params = TextureParameters{});
-	// TODO: Add signature float data function
-	*/
-
-	// TODO: Make private
-	Texture* loadKTXTexture(const std::string& path, const TextureParameters& params = TextureParameters{});
+	Texture* loadTexture(const std::string& path, GLenum format = GL_RGBA8, const TextureParameters& params = {});
 	
+	template<typename T>
+	GLuint loadImmutableTextureData(const T* data, TextureDataInfo info, GLenum format) {
+		GLuint textureID;
+		glCreateTextures(GL_TEXTURE_2D, 1, &textureID);
 
-	Texture* createEmptyTexture(int width, int height, TextureFormat format = TextureFormat::RGBA, const TextureParameters& params = TextureParameters{}, int samples = 1);
-	Texture* createEmptyCubemapTexture(int resolution, TextureFormat format, const TextureParameters& params = TextureParameters{});
+		glTextureStorage2D(textureID, 1, format, info.width, info.height);
+		glTextureSubImage2D(textureID, 0, 0, 0, info.width, info.height, info.format, info.type, data);
+
+		return textureID;
+	}
+
+	void setTextureParameters(GLuint textureID, const TextureParameters& params);
+	
+	Texture* createEmptyTexture(int width, int height, GLenum format = GL_RGBA8, const TextureParameters& params = {});
+	Texture* createEmptyMultisampledTexture(int width, int height, int samples, GLenum format = GL_RGBA8);
+	Texture* createEmptyCubemapTexture(int resolution, GLenum format = GL_RGBA8, const TextureParameters& params = {});
 	
 
 	//----------------------------------------
 	// SECTION: Texture functions
 	//----------------------------------------
 
-	TextureFormat channelsToFormat(int channels, bool sRGB = false);
-	GLenum getTextureFormatInternalFormat(TextureFormat format);
-	GLenum getTextureFormatBaseFormat(TextureFormat format);
-	GLenum getTextureFormatDataType(TextureFormat format);
-	bool isTextureFormatFloatFormat(TextureFormat format);
+	GLenum getDefaultFormat(int channels);
+	GLenum getTypeFromFormat(GLenum format);
+	bool isFloatFormat(GLenum format);
+	bool isUnsignedIntFormat(GLenum format);
+	bool isIntFormat(GLenum format);
+	bool isSRGBFormat(GLenum format);
 
-	//----------------------------------------
-	// SECTION: Texture asset functions
-	//----------------------------------------
-
-	Texture* createTextureAsset(AssetManager* manager, const std::string& path, const unsigned char* data, int width, int height, int channels, TextureFormat format = TextureFormat::RGBA, const TextureParameters& params = TextureParameters{});
-	Texture* createInternalTextureAsset(AssetManager* manager, const std::string& hostPath, const std::string& internalPath, const unsigned char* data, int width, int height, int channels, TextureFormat format = TextureFormat::RGBA, const TextureParameters& params = TextureParameters{});
-
-	struct TextureSerializer : AssetSerializer {
-		void serialize(Asset* asset) const override;
-		bool loadData(Asset** asset) const override;
-	};
 }

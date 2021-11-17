@@ -12,7 +12,6 @@
 int main() {
 	using namespace xe;
 
-
 	//----------------------------------------
 	// SECTION: Application setup
 	//----------------------------------------
@@ -21,6 +20,7 @@ int main() {
 
 	Application* application = createApplication("Hello, world!", 1920, 1080);
 	maximizeApplication(application);
+
 
 	//----------------------------------------
 	// SECTION: ImGui setup
@@ -34,23 +34,30 @@ int main() {
 	setTheme();
 
 	// Load font
-	ImFontConfig fontConfig; fontConfig.OversampleH = 2; fontConfig.OversampleV = 2, fontConfig.GlyphExtraSpacing.x = 0.15f;
+	ImFontConfig fontConfig;
+	fontConfig.OversampleH = 2;
+	fontConfig.OversampleV = 2;
+	fontConfig.GlyphExtraSpacing.x = 0.15f;
+
 	io.Fonts->AddFontFromFileTTF("assets/fonts/Roboto-Regular.ttf", 16.0f, &fontConfig);
 
 	ImGui_ImplGlfw_InitForOpenGL(application->window, true);
 	ImGui_ImplOpenGL3_Init("#version 460 core");
 
+
 	//----------------------------------------
 	// SECTION: Editor
 	//----------------------------------------
 
-	EditorData* editorData = createEditor("assets/");
+	EditorData* editor = createEditor("assets/");
+
 
 	//----------------------------------------
 	// SECTION: Scripting
 	//----------------------------------------
 
-	loadScriptAssembly(editorData->scriptContext, "Test.dll");
+	loadScriptAssembly(editor->scriptContext, "Test.dll");
+
 
 	//----------------------------------------
 	// SECTION: Load environment
@@ -58,12 +65,14 @@ int main() {
 
 	struct EnvironmentAsset {
 		std::string path;
-		Environment environment;
+		Environment env;
+
 		bool loaded = false;
 	};
 
-	std::vector<EnvironmentAsset> environments;
-	int currentEnvironment = 0;
+	std::vector<EnvironmentAsset> envAssets;
+	int currentEnv = 0;
+
 
 	//----------------------------------------
 	// SECTION: TESTING AREA
@@ -79,23 +88,22 @@ int main() {
 	};
 	
 	Environment environment;
-	environment.environmentCubemap = loadKTXTexture("assets/environments/output_skybox.ktx", textureParams);
-	environment.irradianceMap = loadKTXTexture("assets/environments/output_iem.ktx", textureParams);
-	environment.radianceMap = loadKTXTexture("assets/environments/output_pmrem.ktx", radianceParams);
-	environments.push_back(EnvironmentAsset{ "Meadow" , environment, true });
+	environment.environmentCubemap = loadTexture("assets/environments/output_skybox.ktx", GL_RGB16F, textureParams);
+	environment.irradianceMap = loadTexture("assets/environments/output_iem.ktx", GL_RGB16F, textureParams);
+	environment.radianceMap = loadTexture("assets/environments/output_pmrem.ktx", GL_RGB16F, radianceParams);
+	envAssets.push_back(EnvironmentAsset{ "Meadow" , environment, true });
 
 	Environment darkEnv;
-	darkEnv.environmentCubemap = loadKTXTexture("assets/environments/dark_skybox.ktx", textureParams);
-	darkEnv.irradianceMap = loadKTXTexture("assets/environments/dark_iem.ktx", textureParams);
-	darkEnv.radianceMap = loadKTXTexture("assets/environments/dark_pmrem.ktx", radianceParams);
-	environments.push_back(EnvironmentAsset{ "Dark" , darkEnv, true });
+	darkEnv.environmentCubemap = loadTexture("assets/environments/dark_skybox.ktx", GL_RGB16F, textureParams);
+	darkEnv.irradianceMap = loadTexture("assets/environments/dark_iem.ktx", GL_RGB16F, textureParams);
+	darkEnv.radianceMap = loadTexture("assets/environments/dark_pmrem.ktx", GL_RGB16F, radianceParams);
+	envAssets.push_back(EnvironmentAsset{ "Dark" , darkEnv, true });
 
 	Environment nightEnv;
-	nightEnv.environmentCubemap = loadKTXTexture("assets/environments/night_skybox.ktx", textureParams);
-	nightEnv.irradianceMap = loadKTXTexture("assets/environments/night_iem.ktx", textureParams);
-	nightEnv.radianceMap = loadKTXTexture("assets/environments/night_pmrem.ktx", radianceParams);
-	environments.push_back(EnvironmentAsset{ "Night" , darkEnv, true });
-
+	nightEnv.environmentCubemap = loadTexture("assets/environments/night_skybox.ktx", GL_RGB16F, textureParams);
+	nightEnv.irradianceMap = loadTexture("assets/environments/night_iem.ktx", GL_RGB16F, textureParams);
+	nightEnv.radianceMap = loadTexture("assets/environments/night_pmrem.ktx", GL_RGB16F, radianceParams);
+	envAssets.push_back(EnvironmentAsset{ "Night" , darkEnv, true });
 
 
 	//----------------------------------------
@@ -105,88 +113,96 @@ int main() {
 	while (!shouldApplicationClose(application)) {
 		Timestep ts = updateApplication(application);
 
+		Scene* activeScene = getActiveScene(editor);
+
+		//----------------------------------------
+		// SECTION: UI state
+		//----------------------------------------
+
 		bool uiWantsMouse = io.WantCaptureMouse || ImGuizmo::IsUsing();
 		bool uiWantsKeyboard = io.WantCaptureKeyboard;
+
 
 		//----------------------------------------
 		// SECTION: Update
 		//----------------------------------------
 
-		if (Input::isKeyPressed(GLFW_KEY_F) && editorData->selectedEntityID.isValid()) {
-			cameraFocus(editorData->camera, getWorldMatrix(getEntityFromID(getActiveScene(editorData), editorData->selectedEntityID))[3]);
+		if (Input::isKeyPressed(GLFW_KEY_F) && editor->selectedEntityID.isValid()) {
+			Entity selected = getEntityFromID(activeScene, editor->selectedEntityID);
+			cameraFocus(editor->camera, getWorldMatrix(selected)[3]);
 		}
 
 		if (Input::isKeyPressed(GLFW_KEY_ESCAPE)) {
-			editorData->selectedEntityID = UUID::None();
-			editorData->selectedAsset = nullptr;
+			editor->selectedEntityID = UUID::None();
+			editor->selectedAsset = nullptr;
 		}
 
 		// Camera
-		if (editorData->playState == xe::PlayModeState::Edit && editorData->sceneViewportHovered) {
-			updateOrbitCamera(editorData->camera, ts);
+		if (editor->sceneViewHovered) {
+			updateOrbitCamera(editor->camera, ts);
 		}
 
 		// Scripts & Animations
-		updateSceneModels(getActiveScene(editorData), editorData->playState == PlayModeState::Play, ts.deltaTime);
-		if (editorData->playState == PlayModeState::Play) {
-			updateScriptEntities(editorData->scriptContext, ts.deltaTime);
+		updateSceneModels(activeScene, editor->playState == PlayModeState::Play, ts.deltaTime);
+		if (editor->playState == PlayModeState::Play) {
+			updateScriptEntities(editor->scriptContext, ts.deltaTime);
 		}
+
 
 		//----------------------------------------
 		// SECTION: Render
 		//----------------------------------------
 
 		// Render game view
-		bool isGameShown = getActiveScene(editorData)->mainCameraEntityID.isValid()
-			&& editorData->gameViewportSize.x != -1
-			&& editorData->gameViewportSize.y != -1;
+		bool isGameShown = activeScene->mainCameraEntityID.isValid()
+			&& editor->gameViewSize.x != -1
+			&& editor->gameViewSize.y != -1;
 
 		if (isGameShown) {
-			glViewport(0, 0, editorData->gameViewportSize.x, editorData->gameViewportSize.y);
-			bindFramebuffer(*editorData->gameSourceFramebuffer);
-			{
-				clearFramebuffer(*editorData->gameSourceFramebuffer, *editorData->renderer->shader);
+			glViewport(0, 0, editor->gameViewSize.x, editor->gameViewSize.y);
 
-				renderScene(getActiveScene(editorData), *editorData->renderer, environments[currentEnvironment].environment);
-			}
+			bindFramebuffer(*editor->gameMultiFB);
+			clearFramebuffer(*editor->gameMultiFB, *editor->renderer->shader);
+			renderScene(activeScene, *editor->renderer, envAssets[currentEnv].env);
 			unbindFramebuffer();
 
 			// Blit framebuffer data into displayedFramebuffer (resolve AA data)
-			blitFramebuffers(editorData->gameSourceFramebuffer, editorData->gameFramebuffer);
+			blitFramebuffers(editor->gameMultiFB, editor->gameFB);
 		}
 
 		// Render editor view
-		bool isEditorShown = editorData->sceneViewportSize.x != -1 && editorData->sceneViewportSize.y != -1;
+		bool isEditorShown = editor->sceneViewSize.x != -1 && editor->sceneViewSize.y != -1;
 
-		if(isEditorShown){
-			glViewport(0, 0, editorData->sceneViewportSize.x, editorData->sceneViewportSize.y);
-			bindFramebuffer(*editorData->editorSourceFramebuffer);
-			{
-				clearFramebuffer(*editorData->editorSourceFramebuffer, *editorData->renderer->shader);
+		if(isEditorShown) {
+			glViewport(0, 0, editor->sceneViewSize.x, editor->sceneViewSize.y);
 
-				renderSceneCustomCamera(getActiveScene(editorData), *editorData->renderer, environments[currentEnvironment].environment, editorData->camera);
+			bindFramebuffer(*editor->editorMultiFB);
+			clearFramebuffer(*editor->editorMultiFB, *editor->renderer->shader);
+			renderSceneCustomCamera(activeScene, *editor->renderer, envAssets[currentEnv].env, editor->camera);
 
-				// Disable rendering to objectID attachment
-				glNamedFramebufferDrawBuffer(editorData->editorSourceFramebuffer->frambufferID, GL_COLOR_ATTACHMENT0);
+			// TODO(Neathan): Move to framebuffer function
+			// Disable rendering to objectID attachment
+			glNamedFramebufferDrawBuffer(editor->editorMultiFB->frambufferID, GL_COLOR_ATTACHMENT0);
 
-				//renderEnvironment(editorData->renderer, environments[currentEnvironment].environment, editorData->camera);
-				renderGrid(editorData->gridShader, editorData->gridModel, editorData->camera);
+			//renderEnvironment(editorData->renderer, environments[currentEnvironment].environment, editorData->camera);
+			renderGrid(editor->gridShader, editor->gridModel, editor->camera);
 
-				// Re-enable rendering to objectID attachment
-				glNamedFramebufferDrawBuffers(
-					editorData->editorSourceFramebuffer->frambufferID,
-					editorData->editorSourceFramebuffer->colorBuffers.size(),
-					editorData->editorSourceFramebuffer->colorBuffers.data()
-				);
-			}
+			// TODO(Neathan): Move to framebuffer function
+			// Re-enable rendering to objectID attachment
+			glNamedFramebufferDrawBuffers(
+				editor->editorMultiFB->frambufferID,
+				editor->editorMultiFB->colorBuffers.size(),
+				editor->editorMultiFB->colorBuffers.data()
+			);
 			unbindFramebuffer();
 			
 			// Blit framebuffer data into displayedFramebuffer (resolve AA data)
-			blitFramebuffers(editorData->editorSourceFramebuffer, editorData->editorFramebuffer);
+			blitFramebuffers(editor->editorMultiFB, editor->editorFB);
 		}
 
+
 		//----------------------------------------
-		// SECTION: Invoke UI
+		// SECTION: Create UI
 		//----------------------------------------
 		
 		ImGui_ImplOpenGL3_NewFrame();
@@ -194,29 +210,10 @@ int main() {
 		ImGui::NewFrame();
 		ImGuizmo::BeginFrame();
 
-		drawEditor(editorData);
+		drawEditor(editor);
 
 		ImGui::ShowDemoWindow();
 
-		//----------------------------------------
-		// SECTION: Test components (components without a proper home yet)
-		//----------------------------------------
-
-		/*
-		// Environment selector
-		if (ImGui::Begin("Environment")) {
-			for (size_t i = 0; i < environments.size(); ++i) {
-				if (ImGui::Button(environments[i].path.c_str())) {
-					currentEnvironment = i;
-					if (!environments[i].loaded) {
-						environments[i].environment = loadIBLCubemap(environments[i].path);
-						environments[i].loaded = true;
-					}
-				}
-			}
-		}
-		ImGui::End();
-		*/
 
 		//----------------------------------------
 		// SECTION: Render UI
@@ -225,30 +222,33 @@ int main() {
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 		
+
 		//----------------------------------------
 		// SECTION: Update framebuffer size and swap buffers
 		//----------------------------------------
 		
-		if (editorData->sceneViewportSizeChanged) {
-			editorData->sceneViewportSizeChanged = false;
-			if (editorData->sceneViewportSize.x > 0 && editorData->sceneViewportSize.y > 0) {
-				updateFramebufferSize(editorData->editorSourceFramebuffer, editorData->sceneViewportSize.x, editorData->sceneViewportSize.y);
-				updateFramebufferSize(editorData->editorFramebuffer, editorData->sceneViewportSize.x, editorData->sceneViewportSize.y);
-				updateOrbitCameraProjection(editorData->camera, editorData->sceneViewportSize.x, editorData->sceneViewportSize.y);
+		if (editor->sceneViewSizeChanged) {
+			editor->sceneViewSizeChanged = false;
+			if (editor->sceneViewSize.x > 0 && editor->sceneViewSize.y > 0) {
+				updateFramebufferSize(editor->editorMultiFB, editor->sceneViewSize.x, editor->sceneViewSize.y);
+				updateFramebufferSize(editor->editorFB, editor->sceneViewSize.x, editor->sceneViewSize.y);
+				updateOrbitCameraProjection(editor->camera, editor->sceneViewSize.x, editor->sceneViewSize.y);
 			}
 		}
 
-		if (editorData->gameViewportSizeChanged) {
-			editorData->gameViewportSizeChanged = false;
-			if (editorData->gameViewportSize.x > 0 && editorData->gameViewportSize.y > 0) {
-				updateFramebufferSize(editorData->gameSourceFramebuffer, editorData->gameViewportSize.x, editorData->gameViewportSize.y);
-				updateFramebufferSize(editorData->gameFramebuffer, editorData->gameViewportSize.x, editorData->gameViewportSize.y);
+		if (editor->gameViewSizeChanged) {
+			editor->gameViewSizeChanged = false;
+			if (editor->gameViewSize.x > 0 && editor->gameViewSize.y > 0) {
+				updateFramebufferSize(editor->gameMultiFB, editor->gameViewSize.x, editor->gameViewSize.y);
+				updateFramebufferSize(editor->gameFB, editor->gameViewSize.x, editor->gameViewSize.y);
 
-				Scene* scene = getActiveScene(editorData);
-				if (scene->mainCameraEntityID.isValid()) {
-					CameraComponent& camera = getEntityFromID(scene, scene->mainCameraEntityID).getComponent<CameraComponent>();
-					camera.width = editorData->gameViewportSize.x;
-					camera.height = editorData->gameViewportSize.y;
+				// Update main camera projection
+				if (activeScene->mainCameraEntityID.isValid()) {
+					Entity cameraEntity = getEntityFromID(activeScene, activeScene->mainCameraEntityID);
+					CameraComponent& camera = cameraEntity.getComponent<CameraComponent>();
+
+					camera.width = editor->gameViewSize.x;
+					camera.height = editor->gameViewSize.y;
 					updateCameraProjection(camera);
 				}
 			}
@@ -257,12 +257,13 @@ int main() {
 		swapBuffers(application);
 	}
 
+
 	//----------------------------------------
 	// SECTION: Clean-up
 	//----------------------------------------
 
 	ImGui::DestroyContext(imguiContext);
-	destroyEditor(editorData);
+	destroyEditor(editor);
 	destroyApplication(application);
 	return 0;
 }

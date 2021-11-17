@@ -4,7 +4,7 @@
 
 namespace xe {
 
-	void copyAssetMetaRuntimeData(const Asset* source, Asset* target) {
+	void copyAssetMetadata(const Asset* source, Asset* target) {
 		target->metadata.handle = source->metadata.handle;
 		target->metadata.type = source->metadata.type;
 		target->metadata.path = source->metadata.path;

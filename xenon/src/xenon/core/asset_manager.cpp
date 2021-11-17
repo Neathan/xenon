@@ -2,8 +2,7 @@
 
 #include <filesystem>
 
-#include "xenon/graphics/texture.h"
-#include "xenon/graphics/model.h"
+#include "xenon/core/asset_serializer.h"
 
 namespace xe {
 
@@ -14,8 +13,8 @@ namespace xe {
 		manager->projectFolder = projectFolder;
 
 		// Load serializers
-		manager->serializers.emplace(AssetType::Model, new ModelSerializer());
-		manager->serializers.emplace(AssetType::Texture, new TextureSerializer());
+		manager->serializers.emplace(AssetType::Model, AssetSerializer{ nullptr, loadModelAsset });
+		manager->serializers.emplace(AssetType::Texture, AssetSerializer{ nullptr, loadTextureAsset });
 
 		// Load project assets
 		updateDirectoryAssets(manager, projectFolder, UUID::None());
@@ -27,27 +26,11 @@ namespace xe {
 	}
 
 	void destroyAssetManager(AssetManager* manager) {
-		for (auto [type, serializer] : manager->serializers) {
-			delete serializer;
-		}
-		// TODO: Destroy asset
+		// TODO(Neathan): Destroy assets
 		delete manager;
 	}
 
-	AssetManager* getAssetManager() {
-		return s_assetManager;
-	}
-
-	bool loadAssetData(AssetManager* manager, Asset** asset) {
-		if ((*asset)->metadata.type == AssetType::Directory) {
-			return false;
-		}
-
-		(*asset)->runtimeData.loaded = manager->serializers.at((*asset)->metadata.type)->loadData(asset);
-		return (*asset)->runtimeData.loaded;
-	}
-
-	Asset* createAsset(AssetManager* manager, const std::string& path, AssetType type, UUID parent) {
+	Asset* createEmptyAsset(AssetManager* manager, const std::string& path, AssetType type, UUID parent) {
 		Asset* asset = nullptr;
 
 		if (type == AssetType::Directory) {
@@ -95,13 +78,35 @@ namespace xe {
 		}
 
 		asset->runtimeData.parent = parent;
-		asset->runtimeData.loaded = false;
+		asset->runtimeData.loaded = false; // TODO(Neathan): This line could possibly be removed
 		return asset;
+	}
+
+	void createEmbeddedAsset(AssetManager* manager, AssetType type, Asset* dataAsset, const std::string& parentPath, const std::string& internalPath) {
+		UUID parentID = manager->registry.at(parentPath).handle;
+
+		std::string embeddedPath = XE_HOST_PATH_BEGIN + parentPath + XE_HOST_PATH_END + internalPath;
+
+		Asset* metaAsset = createEmptyAsset(manager, embeddedPath, type, parentID);
+		copyAssetMetadata(metaAsset, dataAsset);
+		delete metaAsset;
+	}
+
+	bool loadAssetData(AssetManager* manager, Asset** asset) {
+		if ((*asset)->metadata.type == AssetType::Directory) {
+			return false;
+		}
+
+		AssetLoadFunc loadFunc = manager->serializers.at((*asset)->metadata.type).load;
+		if (loadFunc) {
+			(*asset)->runtimeData.loaded = loadFunc(manager, asset);
+			return (*asset)->runtimeData.loaded;
+		}
 	}
 
 	void importAsset(AssetManager* manager, const std::string& path, UUID parent) {
 		AssetType type = getAssetTypeFromPath(path);
-		Asset* asset = createAsset(manager, path, type, parent);
+		Asset* asset = createEmptyAsset(manager, path, type, parent);
 
 		// Register asset if needed
 		if (manager->registry.find(asset->metadata.path) == manager->registry.end()) {
@@ -118,10 +123,10 @@ namespace xe {
 	}
 
 	UUID updateDirectoryAssets(AssetManager* manager, const std::string& path, UUID parent) {
-		Directory* directory = static_cast<Directory*>(createAsset(manager, path, AssetType::Directory, parent));
+		Directory* directory = static_cast<Directory*>(createEmptyAsset(manager, path, AssetType::Directory, parent));
 		directory->runtimeData.loaded = true;
 
-		// Register un-registered directories
+		// Register unregistered directories
 		if (manager->registry.find(directory->metadata.path) == manager->registry.end()) {
 			manager->registry.emplace(directory->metadata.path, directory->metadata);
 		}
@@ -137,7 +142,7 @@ namespace xe {
 			static_cast<Directory*>(manager->assets.at(parent))->children.push_back(directory->metadata.handle);
 		}
 
-		// Itterate over all files in directory and recusivly update them
+		// Iterate over all files in directory and recursively update them
 		for (auto& entry : std::filesystem::directory_iterator(path)) {
 			if (entry.is_directory()) {
 				updateDirectoryAssets(manager, entry.path().generic_string(), directory->metadata.handle);
@@ -174,7 +179,7 @@ namespace xe {
 				it = manager->registry.erase(it);
 			}
 			else {
-				it++;
+				++it;
 			}
 		}
 	}

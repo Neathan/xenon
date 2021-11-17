@@ -14,126 +14,150 @@ namespace xe {
 	// SECTION: Texture
 	//----------------------------------------
 
-	template<typename T>
-	Texture* loadTextureInternal(const T* data, int width, int height, int channels, TextureFormat format, const TextureParameters& params) {
-		// Create GL texture
-		GLuint textureID;
-		glCreateTextures(GL_TEXTURE_2D, 1, &textureID);
-
-		glTextureParameteri(textureID, GL_TEXTURE_MIN_FILTER, params.minFilter);
-		glTextureParameteri(textureID, GL_TEXTURE_MAG_FILTER, params.magFilter);
-		glTextureParameteri(textureID, GL_TEXTURE_WRAP_S, params.wrapS);
-		glTextureParameteri(textureID, GL_TEXTURE_WRAP_T, params.wrapT);
-
-		glTextureStorage2D(textureID, 1, getTextureFormatInternalFormat(format), width, height);
-		glTextureSubImage2D(textureID, 0, 0, 0, width, height, getTextureFormatBaseFormat(format), getTextureFormatDataType(format), data);
-
-		return new Texture{ AssetMetadata(), AssetRuntimeData(), textureID, params, width, height, channels, format };
-	}
-
-	Texture* loadTexture(const std::string& path, TextureFormat format = TextureFormat::RGBA, const TextureParameters& params = TextureParameters{}) {
+	// Supported formats: JPG, PNG, TGA, BMP, PSD, GIF, HDR, PIC
+	GLuint loadStandardFormatImage(const std::string& path, TextureDataInfo info, GLenum format) {
 		// Load texture data
 		int width, height, channels;
 		stbi_set_flip_vertically_on_load(true);
 
-		Texture* texture;
-		if (!isTextureFormatFloatFormat(format)) {
-			unsigned char* data = stbi_load(path.c_str(), &width, &height, &channels, 0);
-			if (!data) {
-				return nullptr;
+		GLuint textureID = 0;
+
+		if (info.type == GL_FLOAT) {
+			float* data = stbi_loadf(path.c_str(), &width, &height, &channels, 0);
+			if (data) {
+				textureID = loadImmutableTextureData(data, info, format);
+				stbi_image_free(data);
 			}
-			texture = loadTextureInternal(data, width, height, channels, format, params);
-			stbi_image_free(data);
 		}
 		else {
-			float* data = stbi_loadf(path.c_str(), &width, &height, &channels, 0);
-			if (!data) {
-				return nullptr;
+			unsigned char* data = stbi_load(path.c_str(), &width, &height, &channels, 0);
+			if (data) {
+				textureID = loadImmutableTextureData(data, info, format);
+				stbi_image_free(data);
 			}
-			texture = loadTextureInternal(data, width, height, channels, format, params);
-			stbi_image_free(data);
 		}
+
+		// Reset state
 		stbi_set_flip_vertically_on_load(false);
 
-		return texture;
+		return textureID;
 	}
 
-	Texture* loadTexture(const unsigned char* data, int width, int height, int channels, TextureFormat format = TextureFormat::RGBA, const TextureParameters& params = TextureParameters{}) {
-		return loadTextureInternal(data, width, height, channels, format, params);
-	}
-
-	Texture* loadKTXTexture(const std::string& path, const TextureParameters& params) {
-		Texture* texture;
-
-		ktxTexture* ktxTexture;
-		ktx_error_code_e result = ktxTexture_CreateFromNamedFile(path.c_str(), KTX_TEXTURE_CREATE_NO_FLAGS, &ktxTexture);
+	Texture* loadKTXTexture(const std::string& path, GLenum format, const TextureParameters& params) {
+		ktxTexture* ktxTex;
+		ktx_error_code_e result = ktxTexture_CreateFromNamedFile(path.c_str(), KTX_TEXTURE_CREATE_NO_FLAGS, &ktxTex);
 		if (result != ktx_error_code_e::KTX_SUCCESS) {
 			return nullptr;
 		}
 
+		// TODO(Neathan): Check if format matches format from ktx metadata
+		TextureInfo info = { ktxTex->baseWidth, ktxTex->baseHeight, format };
+
 		GLuint textureID = 0;
 		GLenum target, glError;
-		ktxTexture_GLUpload(ktxTexture, &textureID, &target, &glError);
+		ktxTexture_GLUpload(ktxTex, &textureID, &target, &glError);
+
+		ktxTexture_Destroy(ktxTex);
 
 		if (glError != GL_NO_ERROR) {
 			return nullptr;
 		}
 
-		glTextureParameteri(textureID, GL_TEXTURE_MIN_FILTER, params.minFilter);
-		glTextureParameteri(textureID, GL_TEXTURE_MAG_FILTER, params.magFilter);
-		glTextureParameteri(textureID, GL_TEXTURE_WRAP_S, params.wrapS);
-		glTextureParameteri(textureID, GL_TEXTURE_WRAP_T, params.wrapT);
+		setTextureParameters(textureID, params);
 
-		// TODO: Extract texture metadata and include missing info in texture
-		texture = new Texture{ AssetMetadata(), AssetRuntimeData(), textureID, TextureParameters(), (int)ktxTexture->baseWidth, (int)ktxTexture->baseHeight, 0, TextureFormat::UNKNOWN };
-
-		ktxTexture_Destroy(ktxTexture);
-
-		return texture;
+		return new Texture{
+			AssetMetadata(),
+			AssetRuntimeData(),
+			textureID,
+			info,
+			params
+		};
 	}
 
-	Texture* createEmptyTexture(int width, int height, TextureFormat format, const TextureParameters& params, int samples) {
-		XE_ASSERT(samples >= 1);
+	Texture* loadTexture(const std::string& path, GLenum format, const TextureParameters& params) {
+		// Check if file is supported by stb_image
+		int x, y, comp;
+		int result = stbi_info(path.c_str(), &x, &y, &comp);
+		
+		if (result) {
+			// Load image using stb_image
+			TextureDataInfo dataInfo = { x, y, comp, getDefaultFormat(comp), getTypeFromFormat(format) };
+			GLuint textureID = loadStandardFormatImage(path, dataInfo, format);
 
-		GLuint textureID;
-		if (samples == 1) {
-			glCreateTextures(GL_TEXTURE_2D, 1, &textureID);
-			glTextureParameteri(textureID, GL_TEXTURE_MIN_FILTER, params.minFilter);
-			glTextureParameteri(textureID, GL_TEXTURE_MAG_FILTER, params.magFilter);
-			glTextureParameteri(textureID, GL_TEXTURE_WRAP_S, params.wrapS);
-			glTextureParameteri(textureID, GL_TEXTURE_WRAP_T, params.wrapT);
+			setTextureParameters(textureID, params);
+
+			TextureInfo info = { x, y, format };
+			return new Texture{
+				AssetMetadata(),
+				AssetRuntimeData(),
+				textureID,
+				info,
+				params
+			};
 		}
 		else {
-			glCreateTextures(GL_TEXTURE_2D_MULTISAMPLE, 1, &textureID);
+			// Try loading image using ktx
+			return loadKTXTexture(path, format, params);
 		}
-
-
-		if (samples == 1) {
-			glTextureStorage2D(textureID, 1, getTextureFormatInternalFormat(format), width, height);
-		}
-		else {
-			glTextureStorage2DMultisample(textureID, samples, getTextureFormatInternalFormat(format), width, height, GL_FALSE);
-		}
-
-		return new Texture{ AssetMetadata(), AssetRuntimeData(), textureID, params, width, height, 0, format };
 	}
 
-	Texture* createEmptyCubemapTexture(int resolution, TextureFormat format, const TextureParameters& params) {
-		GLuint textureID;
-		glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &textureID);
-
+	void setTextureParameters(GLuint textureID, const TextureParameters& params) {
 		glTextureParameteri(textureID, GL_TEXTURE_MIN_FILTER, params.minFilter);
 		glTextureParameteri(textureID, GL_TEXTURE_MAG_FILTER, params.magFilter);
 		glTextureParameteri(textureID, GL_TEXTURE_WRAP_S, params.wrapS);
 		glTextureParameteri(textureID, GL_TEXTURE_WRAP_T, params.wrapT);
 		glTextureParameteri(textureID, GL_TEXTURE_WRAP_R, params.wrapR);
+	}
 
-		glTextureStorage2D(textureID, 1, getTextureFormatInternalFormat(format), resolution, resolution);
-		/*for (int face = 0; face < 6; ++face) {
-			glTextureSubImage3D(textureID, 0, 0, 0, face, resolution, resolution, 1, getTextureFormatBaseFormat(format), getTextureFormatDataType(format), nullptr);
-		}*/
 
-		return new Texture{ AssetMetadata(), AssetRuntimeData(), textureID, params, resolution, resolution, 0, format };
+	Texture* createEmptyTexture(int width, int height, GLenum format, const TextureParameters& params) {
+		GLuint textureID;
+
+		glCreateTextures(GL_TEXTURE_2D, 1, &textureID);
+		glTextureStorage2D(textureID, 1, format, width, height);
+
+		setTextureParameters(textureID, params);
+
+		TextureInfo info = { width, height, format };
+		return new Texture{
+			AssetMetadata(),
+			AssetRuntimeData(),
+			textureID,
+			info,
+			params
+		};
+	}
+
+	Texture* createEmptyMultisampledTexture(int width, int height, int samples, GLenum format) {
+		GLuint textureID;
+		glCreateTextures(GL_TEXTURE_2D_MULTISAMPLE, 1, &textureID);
+		glTextureStorage2DMultisample(textureID, samples, format, width, height, GL_FALSE);
+
+		TextureInfo info = { width, height, format };
+		return new Texture{
+			AssetMetadata(),
+			AssetRuntimeData(),
+			textureID,
+			info,
+			TextureParameters()
+		};
+	}
+
+	Texture* createEmptyCubemapTexture(int resolution, GLenum format, const TextureParameters& params) {
+		GLuint textureID;
+		glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &textureID);
+		glTextureStorage2D(textureID, 1, format, resolution, resolution);
+
+		setTextureParameters(textureID, params);
+
+		TextureInfo info = { resolution, resolution, format };
+		return new Texture{
+			AssetMetadata(),
+			AssetRuntimeData(),
+			textureID,
+			info,
+			params
+		};
 	}
 
 
@@ -141,108 +165,96 @@ namespace xe {
 	// SECTION: Texture functions
 	//----------------------------------------
 
-	// TODO: Replace these helper functions with static lookup data
-	TextureFormat channelsToFormat(int channels, bool sRGB) {
+	GLenum getDefaultFormat(int channels) {
 		XE_ASSERT(channels > 0);
 		XE_ASSERT(channels <= 4);
 		XE_ASSERT(channels != 2);
 
 		if (channels == 1) {
-			return TextureFormat::RED;
-		}
-		else if (channels == 3) {
-			return sRGB ? TextureFormat::SRGB : TextureFormat::RGB;
-		}
-		return sRGB ? TextureFormat::SRGBA : TextureFormat::RGBA;
-	}
-
-	GLenum getTextureFormatInternalFormat(TextureFormat format) {
-		if (format == TextureFormat::SRGB) {
-			return GL_SRGB8;
-		}
-		else if (format == TextureFormat::SRGBA) {
-			return GL_SRGB8_ALPHA8;
-		}
-		else if (format == TextureFormat::RGB) {
-			return GL_RGB8;
-		}
-		else if (format == TextureFormat::RGBA) {
-			return GL_RGBA8;
-		}
-		else if (format == TextureFormat::RED) {
-			return GL_R32UI;
-		}
-		else if (format == TextureFormat::RGB_FLOAT) {
-			return GL_RGB16F;
-		}
-		else if (format == TextureFormat::RGBA_FLOAT) {
-			return GL_RGBA16F;
-		}
-		else if (format == TextureFormat::DEPTH) {
-			return GL_DEPTH_COMPONENT24;
-		}
-		return GL_INVALID_ENUM;
-	}
-
-	GLenum getTextureFormatBaseFormat(TextureFormat format) {
-		if (format == TextureFormat::RGB || format == TextureFormat::SRGB || format == TextureFormat::RGB_FLOAT) {
-			return GL_RGB;
-		}
-		else if (format == TextureFormat::RGBA || format == TextureFormat::SRGBA || format == TextureFormat::RGBA_FLOAT) {
-			return GL_RGBA;
-		}
-		else if (format == TextureFormat::RED) {
 			return GL_RED;
 		}
-		else if (format == TextureFormat::DEPTH) {
-			return GL_DEPTH_COMPONENT;
+		else if (channels == 3) {
+			return GL_RGB;
 		}
-		return GL_INVALID_ENUM;
+		return GL_RGBA;
 	}
 
-	GLenum getTextureFormatDataType(TextureFormat format) {
-		if (format == TextureFormat::RED) {
+	GLenum getTypeFromFormat(GLenum format) {
+		if (isFloatFormat(format)) {
+			return GL_FLOAT;
+		}
+		else if(isUnsignedIntFormat(format)) {
 			return GL_UNSIGNED_INT;
 		}
-		else if (format == TextureFormat::RGB_FLOAT || format == TextureFormat::RGBA_FLOAT || format == TextureFormat::DEPTH) {
-			return GL_FLOAT;
+		else if (isIntFormat(format)) {
+			return GL_INT;
 		}
 		return GL_UNSIGNED_BYTE;
 	}
 
-	bool isTextureFormatFloatFormat(TextureFormat format) {
-		if (format == TextureFormat::RGB_FLOAT || format == TextureFormat::RGBA_FLOAT || format == TextureFormat::DEPTH) {
+	bool isFloatFormat(GLenum format) {
+		switch (format) {
+		case GL_R16F:
+		case GL_RG16F:
+		case GL_RGB16F:
+		case GL_RGBA16F:
+		case GL_R32F:
+		case GL_RG32F:
+		case GL_RGB32F:
+		case GL_RGBA32F:
+		case GL_R11F_G11F_B10F:
 			return true;
 		}
 		return false;
 	}
 
-	//----------------------------------------
-	// SECTION: Texture asset functions
-	//----------------------------------------
-
-	Texture* createTextureAsset(AssetManager* manager, const std::string& path, const unsigned char* data, int width, int height, int channels, TextureFormat format, const TextureParameters& params) {
-		Texture* texture = loadTexture(data, width, height, channels, format, params);
-		Asset* asset = createAsset(manager, path, AssetType::Texture, UUID::None());
-		copyAssetMetaRuntimeData(asset, texture);
-		return texture;
+	bool isUnsignedIntFormat(GLenum format) {
+		switch (format) {
+		case GL_RGB10_A2UI:
+		case GL_R8UI:
+		case GL_R16UI:
+		case GL_R32UI:
+		case GL_RG8UI:
+		case GL_RG16UI:
+		case GL_RG32UI:
+		case GL_RGB8UI:
+		case GL_RGB16UI:
+		case GL_RGB32UI:
+		case GL_RGBA8UI:
+		case GL_RGBA16UI:
+		case GL_RGBA32UI:
+			return true;
+		}
+		return false;
 	}
 
-	Texture* createInternalTextureAsset(AssetManager* manager, const std::string& hostPath, const std::string& internalPath, const unsigned char* data, int width, int height, int channels, TextureFormat format, const TextureParameters& params) {
-		return createTextureAsset(manager, XE_HOST_PATH_BEGIN + hostPath + XE_HOST_PATH_END + internalPath, data, width, height, channels, format, params);
+	bool isIntFormat(GLenum format) {
+		switch (format) {
+		case GL_R8I:
+		case GL_R16I:
+		case GL_R32I:
+		case GL_RG8I:
+		case GL_RG16I:
+		case GL_RG32I:
+		case GL_RGB8I:
+		case GL_RGB16I:
+		case GL_RGB32I:
+		case GL_RGBA8I:
+		case GL_RGBA16I:
+		case GL_RGBA32I:
+			return true;
+		}
+		return false;
 	}
 
-
-	void TextureSerializer::serialize(Asset* asset) const {
-		// TODO: Implement
-		XE_LOG_ERROR("Texture serialization is not yet implemented.");
-	}
-
-	bool TextureSerializer::loadData(Asset** asset) const {
-		const Asset* sourceAsset = *asset;
-		*asset = loadTexture((*asset)->metadata.path);
-		copyAssetMetaRuntimeData(sourceAsset, *asset);
-		return true;
+	bool isSRGBFormat(GLenum format) {
+		switch (format) {
+		case GL_SRGB8:
+		case GL_SRGB8_ALPHA8:
+			return true;
+		default:
+			return false;
+		}
 	}
 
 }

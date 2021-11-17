@@ -36,29 +36,55 @@ namespace xe {
 	}
 
 	template<typename T>
-	Texture* loadTextureIfExists(AssetManager* manager, const tinygltf::Model& model, const T& info, const std::string& path, bool srgb = false) {
-		if (info.index == -1) {
+	Texture* loadTextureIfExists(AssetManager* manager, const tinygltf::Model& model, const T& gltfTextureInfo, const std::string& path, bool sRGB = false) {
+		if (gltfTextureInfo.index == -1) {
 			return nullptr;
 		}
 
-		const tinygltf::Texture& texture = model.textures[info.index];
-		const tinygltf::Image& image = model.images[texture.source];
+		const tinygltf::Texture& gltfTexture = model.textures[gltfTextureInfo.index];
+		const tinygltf::Image& image = model.images[gltfTexture.source];
 
 		TextureParameters textureParameters;
-		if (texture.sampler >= 0) {
-			const tinygltf::Sampler& sampler = model.samplers[texture.sampler];
+		if (gltfTexture.sampler >= 0) {
+			const tinygltf::Sampler& sampler = model.samplers[gltfTexture.sampler];
 			textureParameters.minFilter = sampler.minFilter == -1 ? GL_LINEAR : sampler.minFilter;
 			textureParameters.magFilter = sampler.magFilter == -1 ? GL_LINEAR : sampler.magFilter;
 			textureParameters.wrapS = sampler.wrapS;
 			textureParameters.wrapT = sampler.wrapT;
 		}
 
-		TextureFormat format = channelsToFormat(image.component, srgb);  // TODO: Check if this is the valid way to do sRGB 
+		GLenum format = 0;
+		if (image.component == 1) format = GL_R8;
+		else if (image.component == 3) format = sRGB ? GL_SRGB8 : GL_RGB8;
+		else if (image.component == 4) format = sRGB ? GL_SRGB8_ALPHA8 : GL_RGBA8;
 
-		// TODO: Add multi-texture-coordinate support: info.texCoord
-		// TODO: Improve texture signature
-		// std::string signature = TEXTURE_INTERNAL_SIGNATURE + std::to_string(info.index) + ":" + std::to_string((int)type) + ":" + path;
-		return createInternalTextureAsset(manager, path, std::to_string(info.index), image.image.data(), image.width, image.height, image.component, format, textureParameters);
+		// TODO(Neathan): Add multi-texture-coordinate support: info.texCoord
+		// TODO(Neathan): Improve texture signature
+		
+		TextureDataInfo dataInfo = {
+			image.width,
+			image.height,
+			image.component,
+			getDefaultFormat(image.component),
+			image.pixel_type
+		};
+
+		GLuint textureID = loadImmutableTextureData(image.image.data(), dataInfo, format);
+
+		setTextureParameters(textureID, textureParameters);
+
+		TextureInfo textureInfo = { image.width, image.height, format };
+		Texture* texture = new Texture{
+			AssetMetadata(),
+			AssetRuntimeData(),
+			textureID,
+			textureInfo,
+			textureParameters
+		};
+
+		createEmbeddedAsset(manager, AssetType::Texture, texture, path, std::to_string(gltfTextureInfo.index));
+
+		return texture;
 	}
 
 	size_t processPrimitives(const tinygltf::Model& model,
@@ -153,7 +179,7 @@ namespace xe {
 		return primitiveCount;
 	}
 
-	Model* loadModel(const std::string& path) {
+	Model* loadModel(AssetManager* manager, const std::string& path) {
 		tinygltf::TinyGLTF loader;
 		tinygltf::Model gltfModel;
 		std::string err, warn;
@@ -188,8 +214,6 @@ namespace xe {
 
 		// TODO: Add support for multiple scenes
 		Model* model = new Model();
-
-		AssetManager* manager = getAssetManager();
 
 
 		// Process materials

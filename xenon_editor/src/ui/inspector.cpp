@@ -9,7 +9,8 @@
 namespace xe {
 
 	bool beginComponent(const char* label, bool collapsingHeader = true) {
-		if ((collapsingHeader && ImGui::CollapsingHeader(label, ImGuiTreeNodeFlags_DefaultOpen)) || !collapsingHeader) {
+		bool isHeaderOpen = collapsingHeader && ImGui::CollapsingHeader(label, ImGuiTreeNodeFlags_DefaultOpen);
+		if (isHeaderOpen || !collapsingHeader) {
 			if (ImGui::BeginTable("InspectorTable", 2, ImGuiTableFlags_SizingFixedFit)) {
 				ImGui::TableSetupColumn("###Labels", ImGuiTableColumnFlags_WidthStretch, 0.2);
 				ImGui::TableSetupColumn("###Field", ImGuiTableColumnFlags_WidthStretch, 0.8);
@@ -19,8 +20,8 @@ namespace xe {
 		return false;
 	}
 
-	void endComponent(bool open) {
-		if (open) {
+	void endComponent(bool isOpen) {
+		if (isOpen) {
 			ImGui::EndTable();
 		}
 		ImGui::Dummy(ImVec2(0, 4));
@@ -32,6 +33,7 @@ namespace xe {
 		ImGui::TableNextColumn();
 		ImGui::Text(label);
 		ImGui::TableNextColumn();
+
 		if (pushFullWidth) {
 			ImGui::PushItemWidth(-1);
 		}

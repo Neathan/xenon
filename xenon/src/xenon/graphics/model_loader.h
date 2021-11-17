@@ -6,7 +6,7 @@
 
 namespace xe {
 
-	Model* loadModel(const std::string& path);
+	Model* loadModel(AssetManager* manager, const std::string& path);
 
 }
 

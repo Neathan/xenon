@@ -230,16 +230,4 @@ namespace xe {
 		}
 	}
 
-	void ModelSerializer::serialize(Asset* asset) const {
-		// TODO: Implement
-		XE_LOG_ERROR("Model serialization is not yet implemented.");
-	}
-
-	bool ModelSerializer::loadData(Asset** asset) const {
-		const Asset* sourceAsset = *asset;
-		*asset = loadModel((*asset)->metadata.path);
-		copyAssetMetaRuntimeData(sourceAsset, *asset);
-		return true;
-	}
-
 }

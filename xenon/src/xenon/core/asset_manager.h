@@ -13,27 +13,26 @@
 
 namespace xe {
 
+	struct AssetManager;
+	using AssetSerializeFunc = void (*)(Asset* asset);
+	using AssetLoadFunc = bool (*)(AssetManager* assetManager, Asset** asset);
+
+	struct AssetSerializer {
+		AssetSerializeFunc serialize = nullptr;
+		AssetLoadFunc load = nullptr;
+	};
+
 	struct AssetManager {
 		std::string projectFolder;
 		std::map<UUID, Asset*> assets;
 		std::map<std::string, AssetMetadata> registry;
-		std::map<AssetType, AssetSerializer*> serializers;
+		std::map<AssetType, AssetSerializer> serializers;
 
 		std::vector<std::pair<UUID, Asset*>> sortedAssets;
 	};
 
 	AssetManager* createAssetManager(const std::string& projectFolder);
 	void destroyAssetManager(AssetManager* manager);
-
-	// TODO: Can this be avoided?
-	AssetManager* getAssetManager();
-
-	bool loadAssetData(AssetManager* manager, Asset** asset);
-	Asset* createAsset(AssetManager* manager, const std::string& path, AssetType type, UUID parent);
-	void importAsset(AssetManager* manager, const std::string& path, UUID parent);
-
-	UUID updateDirectoryAssets(AssetManager* manager, const std::string& path, UUID parent);
-	void updateAssetRegistry(AssetManager* manager);
 
 	template<typename T>
 	T* getAsset(AssetManager* manager, UUID assetHandle, bool loadData = true) {
@@ -62,6 +61,18 @@ namespace xe {
 		XE_LOG_ERROR_F("ASSET_MANAGER: Asset not found: {}", path);
 		return nullptr;
 	}
+
+	Asset* createEmptyAsset(AssetManager* manager, const std::string& path, AssetType type, UUID parent);
+	void createEmbeddedAsset(AssetManager* manager, AssetType type, Asset* dataAsset, const std::string& parentPath, const std::string& internalPath);
+
+	bool loadAssetData(AssetManager* manager, Asset** asset);
+
+	void importAsset(AssetManager* manager, const std::string& path, UUID parent);
+
+	UUID updateDirectoryAssets(AssetManager* manager, const std::string& path, UUID parent);
+	void updateAssetRegistry(AssetManager* manager);
+
+	
 
 
 }

@@ -12,7 +12,7 @@ namespace xe {
 
 	struct FramebufferAttachment {
 		GLenum target;
-		TextureFormat format;
+		GLenum format;
 		TextureParameters textureParams;
 		Texture* texture = nullptr;
 	};

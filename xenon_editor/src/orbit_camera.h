@@ -11,6 +11,7 @@ namespace xe {
 	};
 
 	OrbitCamera createOrbitCamera(int width, int height, float near = 0.01f, float far = 100.0f);
+
 	void updateOrbitCameraProjection(OrbitCamera& camera, int width, int height, float near = 0.01f, float far = 1000.0f);
 	void updateOrbitCamera(OrbitCamera& camera, Timestep ts);
 

@@ -33,28 +33,13 @@ namespace xe {
 	struct Asset {
 		AssetMetadata metadata;
 		AssetRuntimeData runtimeData;
-
-		/*
-		virtual bool operator==(const Asset& other) const {
-			return metadata.handle == other.metadata.handle;
-		}
-		virtual bool operator!=(const Asset& other) const {
-			return metadata.handle != other.metadata.handle;
-		}
-		*/
 	};
 	
-	void copyAssetMetaRuntimeData(const Asset* source, Asset* target);
+	void copyAssetMetadata(const Asset* source, Asset* target);
 	AssetType getAssetTypeFromPath(const std::string& path);
 
 	struct Directory : Asset {
 		std::vector<UUID> children;
 	};
-
-	struct AssetSerializer {
-		virtual void serialize(Asset* asset) const = 0;
-		virtual bool loadData(Asset** asset) const = 0;
-	};
-
 
 }

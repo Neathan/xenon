@@ -31,6 +31,7 @@ namespace xe {
 	bool buildFramebuffer(Framebuffer* framebuffer) {
 		XE_ASSERT(framebuffer->frambufferID != 0);
 
+		// Check for valid size
 		if (framebuffer->width == 0 || framebuffer->height == 0) {
 			XE_LOG_WARN("FRAMEBUFFER: Invalid width or height");
 			return false;
@@ -42,11 +43,18 @@ namespace xe {
 			framebuffer->colorBuffers.clear();
 		}
 
+		// Create attachments
 		for (auto& [target, attachment] : framebuffer->attachments) {
 			if (attachment.texture) {
 				XE_LOG_WARN_F("FRAMEBUFFER: Framebuffer texture already exists, overwriting framebuffer texture: {}", attachment.texture->textureID);
 			}
-			attachment.texture = createEmptyTexture(framebuffer->width, framebuffer->height, attachment.format, attachment.textureParams, framebuffer->samples);
+			// Create appropriate texture for sample count
+			if (framebuffer->samples == 1) {
+				attachment.texture = createEmptyTexture(framebuffer->width, framebuffer->height, attachment.format, attachment.textureParams);
+			}
+			else {
+				attachment.texture = createEmptyMultisampledTexture(framebuffer->width, framebuffer->height, framebuffer->samples, attachment.format);
+			}
 			glNamedFramebufferTexture(framebuffer->frambufferID, attachment.target, attachment.texture->textureID, 0);
 
 			if (attachment.target != GL_DEPTH_ATTACHMENT && attachment.target != GL_STENCIL_ATTACHMENT) {
@@ -117,7 +125,7 @@ namespace xe {
 				glBlitNamedFramebuffer(source->frambufferID, target->frambufferID, 0, 0, source->width, source->height, 0, 0, target->width, target->height, filter, GL_NEAREST);
 			}
 		}
-		// Restore draw- and readbuffers
+		// Restore draw and read buffers
 		if (source->colorBuffers.size() > 0) {
 			glNamedFramebufferReadBuffer(source->frambufferID, source->colorBuffers.at(0));
 		}
@@ -129,14 +137,14 @@ namespace xe {
 
 	FramebufferAttachmentPair createDefaultFramebufferAttachment(DefaultAttachmentType type, GLuint target) {
 		if (type == DefaultAttachmentType::COLOR) {
-			return { GL_COLOR_ATTACHMENT0 + target, FramebufferAttachment{ GL_COLOR_ATTACHMENT0 + target, TextureFormat::RGB, TextureParameters{ GL_LINEAR, GL_LINEAR } } };
+			return { GL_COLOR_ATTACHMENT0 + target, FramebufferAttachment{ GL_COLOR_ATTACHMENT0 + target, GL_RGB8, TextureParameters{ GL_LINEAR, GL_LINEAR } } };
 		}
 		else if (type == DefaultAttachmentType::DEPTH) {
 			XE_ASSERT(target == 0);
-			return { GL_DEPTH_ATTACHMENT, FramebufferAttachment{ GL_DEPTH_ATTACHMENT, TextureFormat::DEPTH, TextureParameters{ GL_NEAREST, GL_NEAREST } } };
+			return { GL_DEPTH_ATTACHMENT, FramebufferAttachment{ GL_DEPTH_ATTACHMENT, GL_DEPTH_COMPONENT24, TextureParameters{ GL_NEAREST, GL_NEAREST } } };
 		}
 		else { // type == DefaultAttachmentType::INTEGER
-			return { GL_COLOR_ATTACHMENT0 + target, FramebufferAttachment{ GL_COLOR_ATTACHMENT0 + target, TextureFormat::RED, TextureParameters{ GL_NEAREST, GL_NEAREST } } };
+			return { GL_COLOR_ATTACHMENT0 + target, FramebufferAttachment{ GL_COLOR_ATTACHMENT0 + target, GL_R32UI, TextureParameters{ GL_NEAREST, GL_NEAREST } } };
 		}
 	}
 

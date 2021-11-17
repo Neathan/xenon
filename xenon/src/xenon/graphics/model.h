@@ -70,9 +70,4 @@ namespace xe {
 
 	void updateInstanceTransformation(ModelComponent& modelComponent, const glm::mat4& transform);
 
-	struct ModelSerializer : AssetSerializer {
-		void serialize(Asset* asset) const override;
-		bool loadData(Asset** asset) const override;
-	};
-
 }

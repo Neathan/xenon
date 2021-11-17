@@ -25,37 +25,31 @@ namespace xe {
 		editor->gridShader = loadShader("assets/shaders/grid.vert", "assets/shaders/grid.frag");
 		editor->renderer = createRenderer(editor->pbrShader, editor->envShader);
 
-		/* NOTE: Only needed for runtime rendering. Only included for reference.
-		// Create framebuffer renderer and shader
-		Shader* framebufferShader = loadShader("assets/framebuffer.vert", "assets/framebuffer.frag");
-		FramebufferRenderer* framebufferRenderer = createFramebufferRenderer(framebufferShader);
-		*/
-
 		// Create scene framebuffer to render to (multi sampled)
-		editor->editorSourceFramebuffer = createFramebuffer(1920, 1080, 16);
-		editor->editorSourceFramebuffer->attachments.insert(createDefaultFramebufferAttachment(DefaultAttachmentType::COLOR, 0));
-		editor->editorSourceFramebuffer->attachments.insert(createDefaultFramebufferAttachment(DefaultAttachmentType::DEPTH, 0));
-		editor->editorSourceFramebuffer->attachments.insert(createDefaultFramebufferAttachment(DefaultAttachmentType::INTEGER, 1));
-		buildFramebuffer(editor->editorSourceFramebuffer);
+		editor->editorMultiFB = createFramebuffer(1920, 1080, 16);
+		editor->editorMultiFB->attachments.insert(createDefaultFramebufferAttachment(DefaultAttachmentType::COLOR, 0));
+		editor->editorMultiFB->attachments.insert(createDefaultFramebufferAttachment(DefaultAttachmentType::DEPTH, 0));
+		editor->editorMultiFB->attachments.insert(createDefaultFramebufferAttachment(DefaultAttachmentType::INTEGER, 1));
+		buildFramebuffer(editor->editorMultiFB);
 
 		// Create scene framebuffer to blit to (resolved multi sample)
-		editor->editorFramebuffer = createFramebuffer(1920, 1080, 1); // No AA
-		editor->editorFramebuffer->attachments.insert(createDefaultFramebufferAttachment(DefaultAttachmentType::COLOR, 0));
-		editor->editorFramebuffer->attachments.insert(createDefaultFramebufferAttachment(DefaultAttachmentType::INTEGER, 1));
-		buildFramebuffer(editor->editorFramebuffer);
+		editor->editorFB = createFramebuffer(1920, 1080, 1); // No AA
+		editor->editorFB->attachments.insert(createDefaultFramebufferAttachment(DefaultAttachmentType::COLOR, 0));
+		editor->editorFB->attachments.insert(createDefaultFramebufferAttachment(DefaultAttachmentType::INTEGER, 1));
+		buildFramebuffer(editor->editorFB);
 
 		// Create game framebuffer to render to (multi sampled)
-		editor->gameSourceFramebuffer = createFramebuffer(1920, 1080, 16);
-		editor->gameSourceFramebuffer->attachments.insert(createDefaultFramebufferAttachment(DefaultAttachmentType::COLOR, 0));
-		editor->gameSourceFramebuffer->attachments.insert(createDefaultFramebufferAttachment(DefaultAttachmentType::DEPTH, 0));
-		editor->gameSourceFramebuffer->attachments.insert(createDefaultFramebufferAttachment(DefaultAttachmentType::INTEGER, 1));
-		buildFramebuffer(editor->gameSourceFramebuffer);
+		editor->gameMultiFB = createFramebuffer(1920, 1080, 16);
+		editor->gameMultiFB->attachments.insert(createDefaultFramebufferAttachment(DefaultAttachmentType::COLOR, 0));
+		editor->gameMultiFB->attachments.insert(createDefaultFramebufferAttachment(DefaultAttachmentType::DEPTH, 0));
+		editor->gameMultiFB->attachments.insert(createDefaultFramebufferAttachment(DefaultAttachmentType::INTEGER, 1));
+		buildFramebuffer(editor->gameMultiFB);
 
 		// Create game framebuffer to blit to (resolved multi sample)
-		editor->gameFramebuffer = createFramebuffer(1920, 1080, 1); // No AA
-		editor->gameFramebuffer->attachments.insert(createDefaultFramebufferAttachment(DefaultAttachmentType::COLOR, 0));
-		editor->gameFramebuffer->attachments.insert(createDefaultFramebufferAttachment(DefaultAttachmentType::INTEGER, 1));
-		buildFramebuffer(editor->gameFramebuffer);
+		editor->gameFB = createFramebuffer(1920, 1080, 1); // No AA
+		editor->gameFB->attachments.insert(createDefaultFramebufferAttachment(DefaultAttachmentType::COLOR, 0));
+		editor->gameFB->attachments.insert(createDefaultFramebufferAttachment(DefaultAttachmentType::INTEGER, 1));
+		buildFramebuffer(editor->gameFB);
 
 		// Grid model
 		editor->gridModel = generatePlaneModel(1, 1, GeneratorDirection::FRONT);
@@ -73,7 +67,7 @@ namespace xe {
 		editor->scriptContext->scene = editor->scene;
 
 		// Asset viewer
-		editor->assetViewerDirectory = getAsset<Directory>(editor->assetManager, projectFolder, false);
+		editor->assetDir = getAsset<Directory>(editor->assetManager, projectFolder, false);
 
 		return editor;
 	}
@@ -88,11 +82,11 @@ namespace xe {
 
 		destroyModel(data->gridModel);
 
-		destroyFramebuffer(data->gameFramebuffer);
-		destroyFramebuffer(data->gameSourceFramebuffer);
+		destroyFramebuffer(data->gameFB);
+		destroyFramebuffer(data->gameMultiFB);
 
-		destroyFramebuffer(data->editorFramebuffer);
-		destroyFramebuffer(data->editorSourceFramebuffer);
+		destroyFramebuffer(data->editorFB);
+		destroyFramebuffer(data->editorMultiFB);
 
 		destroyRenderer(data->renderer);
 		destroyShader(data->gridShader);
@@ -147,7 +141,7 @@ namespace xe {
 
 			ImGuiID applicationRootDockspaceID = ImGui::GetID("ApplicationRootDockspace");
 			ImGui::DockSpace(applicationRootDockspaceID);
-			// TODO: Build UI
+			// TODO(Neathan): Build UI
 		}
 		ImGui::End();
 
@@ -156,63 +150,61 @@ namespace xe {
 	}
 
 	void drawGizmo(EditorData* data) {
-		if (data->selectedEntityID.isValid()) {
-			ImGuizmo::SetDrawlist(ImGui::GetWindowDrawList());
-			ImGuizmo::SetRect(data->sceneViewportPos.x, data->sceneViewportPos.y, data->sceneViewportSize.x, data->sceneViewportSize.y);
-			ImGuizmo::SetGizmoSizeClipSpace(0.05f * 1080.0f / data->sceneViewportSize.y);
+		ImGuizmo::SetDrawlist(ImGui::GetWindowDrawList());
+		ImGuizmo::SetRect(data->sceneViewPos.x, data->sceneViewPos.y, data->sceneViewSize.x, data->sceneViewSize.y);
+		ImGuizmo::SetGizmoSizeClipSpace(0.05f * 1080.0f / data->sceneViewSize.y);
 
-			Entity selectedEntity = getEntityFromID(getActiveScene(data), data->selectedEntityID);
+		Entity selectedEntity = getEntityFromID(getActiveScene(data), data->selectedEntityID);
 
-			TransformComponent& selectedTransform = selectedEntity.getComponent<TransformComponent>();
-			glm::mat4 worldMatrix = getWorldMatrix(selectedEntity);
+		TransformComponent& selectedTransform = selectedEntity.getComponent<TransformComponent>();
+		glm::mat4 worldMatrix = getWorldMatrix(selectedEntity);
 
-			if (data->sceneViewportHovered) {
-				if (Input::isKeyPressed(GLFW_KEY_Q)) {
-					data->editOperation = ImGuizmo::OPERATION::BOUNDS;
-				}
-				else if(Input::isKeyPressed(GLFW_KEY_W)) {
-					data->editOperation = ImGuizmo::OPERATION::TRANSLATE;
-				}
-				else if (Input::isKeyPressed(GLFW_KEY_E)) {
-					data->editOperation = ImGuizmo::OPERATION::ROTATE;
-				}
-				else if (Input::isKeyPressed(GLFW_KEY_R)) {
-					data->editOperation = ImGuizmo::OPERATION::SCALE;
-				}
+		if (data->sceneViewHovered) {
+			if (Input::isKeyPressed(GLFW_KEY_Q)) {
+				data->editOperation = ImGuizmo::OPERATION::BOUNDS;
 			}
+			else if(Input::isKeyPressed(GLFW_KEY_W)) {
+				data->editOperation = ImGuizmo::OPERATION::TRANSLATE;
+			}
+			else if (Input::isKeyPressed(GLFW_KEY_E)) {
+				data->editOperation = ImGuizmo::OPERATION::ROTATE;
+			}
+			else if (Input::isKeyPressed(GLFW_KEY_R)) {
+				data->editOperation = ImGuizmo::OPERATION::SCALE;
+			}
+		}
 
-			glm::mat4 matrixBefore = worldMatrix;
+		glm::mat4 matrixBefore = worldMatrix;
 
-			BoundingBox bounds;
-			if (data->editOperation == ImGuizmo::OPERATION::BOUNDS) {
-				bounds = BoundingBox{ glm::vec3(-.5f, -.5f, -.5f), glm::vec3(.5f, .5f, .5f) };
-				Entity entity = getEntityFromID(getActiveScene(data), data->selectedEntityID);
-				if (entity.hasComponent<ModelComponent>()) {
-					ModelComponent& modelComponent = entity.getComponent<ModelComponent>();
-					if (modelComponent.model) {
-						bounds = modelComponent.model->bounds;
-					}
+		BoundingBox bounds;
+		if (data->editOperation == ImGuizmo::OPERATION::BOUNDS) {
+			bounds = BoundingBox{ glm::vec3(-.5f, -.5f, -.5f), glm::vec3(.5f, .5f, .5f) };
+			Entity entity = getEntityFromID(getActiveScene(data), data->selectedEntityID);
+			if (entity.hasComponent<ModelComponent>()) {
+				ModelComponent& modelComponent = entity.getComponent<ModelComponent>();
+				if (modelComponent.model) {
+					bounds = modelComponent.model->bounds;
 				}
 			}
+		}
 
-			bool shouldSnap = Input::isKeyHeld(GLFW_KEY_LEFT_SHIFT);
-			glm::vec3 snap = glm::vec3(0.1f);
-			if (data->editOperation == ImGuizmo::OPERATION::ROTATE) {
-				snap = glm::vec3(5.0f);
-			}
+		bool shouldSnap = Input::isKeyHeld(GLFW_KEY_LEFT_SHIFT);
+		bool editingBounds = data->editOperation == ImGuizmo::OPERATION::BOUNDS;
+		glm::vec3 snap = data->editOperation == ImGuizmo::OPERATION::ROTATE ? glm::vec3(5.0f) : glm::vec3(0.1f);
 
-			ImGuizmo::Manipulate(glm::value_ptr(glm::inverse(data->camera.offsetTransform)), glm::value_ptr(data->camera.projection),
-				data->editOperation, data->editMode, glm::value_ptr(worldMatrix), nullptr, shouldSnap ? glm::value_ptr(snap) : nullptr, data->editOperation == ImGuizmo::OPERATION::BOUNDS ? (float*)&bounds : nullptr);
+		ImGuizmo::Manipulate(
+			glm::value_ptr(glm::inverse(data->camera.offsetTransform)),
+			glm::value_ptr(data->camera.projection),
+			data->editOperation,
+			data->editMode,
+			glm::value_ptr(worldMatrix),
+			nullptr,
+			shouldSnap ? glm::value_ptr(snap) : nullptr,
+			editingBounds ? (float*)&bounds : nullptr);
 
-			// TODO: Replace when this open issue has been solved: https://github.com/CedricGuillemet/ImGuizmo/issues/201
-			if (worldMatrix != matrixBefore) {
-				selectedTransform.matrix = toLocalMatrix(worldMatrix, selectedEntity);
-			}
-
-			if (Input::isKeyPressed(GLFW_KEY_DELETE)) {
-				removeEntity(getActiveScene(data), data->selectedEntityID);
-				data->selectedEntityID = UUID::None();
-			}
+		// TODO(Neathan): Replace when this open issue has been solved: https://github.com/CedricGuillemet/ImGuizmo/issues/201
+		if (worldMatrix != matrixBefore) {
+			selectedTransform.matrix = toLocalMatrix(worldMatrix, selectedEntity);
 		}
 	}
 
@@ -222,38 +214,57 @@ namespace xe {
 		if (ImGui::Begin("Scene")) {
 			// Check if windows size changed
 			ImVec2 size = ImGui::GetContentRegionAvail();
-			if (size != data->sceneViewportSize) {
-				data->sceneViewportSizeChanged = true;
-				data->sceneViewportSize = size;
+			if (size != data->sceneViewSize) {
+				data->sceneViewSizeChanged = true;
+				data->sceneViewSize = size;
 			}
 
-			data->sceneViewportPos = ImGui::GetCursorScreenPos();
-			const ImVec2 viewportEnd = data->sceneViewportPos + data->sceneViewportSize;
+			data->sceneViewPos = ImGui::GetCursorScreenPos();
+			const ImVec2 viewportEnd = data->sceneViewPos + data->sceneViewSize;
 
 			// Draw framebuffer
-			ImGui::Image((ImTextureID)data->editorFramebuffer->attachments.at(GL_COLOR_ATTACHMENT0).texture->textureID, data->sceneViewportSize, ImVec2(0, 1), ImVec2(1, 0));
+			ImGui::Image(
+				(ImTextureID)data->editorFB->attachments.at(GL_COLOR_ATTACHMENT0).texture->textureID,
+				data->sceneViewSize,
+				ImVec2(0, 1),
+				ImVec2(1, 0));
 			
 			// Create hole for inputs
-			ImGui::SetWindowHitTestHole(ImGui::GetCurrentWindow(), data->sceneViewportPos, data->sceneViewportSize);
+			ImGui::SetWindowHitTestHole(ImGui::GetCurrentWindow(), data->sceneViewPos, data->sceneViewSize);
 
-			// Create clip rect to keep the gizmo inside the framebuffer image
-			ImGui::PushClipRect(data->sceneViewportPos, viewportEnd, true);
-			drawGizmo(data);
-			ImGui::PopClipRect();
+			// Draw gizmo
+			if (data->selectedEntityID.isValid()) {
+				// Create clip rect to keep the gizmo inside the framebuffer image
+				ImGui::PushClipRect(data->sceneViewPos, viewportEnd, true);
+				drawGizmo(data);
+				ImGui::PopClipRect();
+			}
 
 			// Picking
 			ImVec2 mp = ImGui::GetMousePos();
-			data->sceneViewportHovered = mp.x >= data->sceneViewportPos.x && mp.x < viewportEnd.x && mp.y >= data->sceneViewportPos.y && mp.y < viewportEnd.y;
+			data->sceneViewHovered = mp.x >= data->sceneViewPos.x
+				&& mp.y >= data->sceneViewPos.y
+				&& mp.x < viewportEnd.x
+				&& mp.y < viewportEnd.y;
 
-			if (data->sceneViewportHovered && !ImGuizmo::IsUsing() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-				bindFramebuffer(*data->editorFramebuffer);
+			if (data->sceneViewHovered && !ImGuizmo::IsUsing() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+				bindFramebuffer(*data->editorFB);
 				bindShader(*data->renderer->shader);
+
 				uint32_t objectID;
 				glReadBuffer(GL_COLOR_ATTACHMENT1);
-				glReadPixels(mp.x - data->sceneViewportPos.x, data->sceneViewportSize.y - (mp.y - data->sceneViewportPos.y), 1, 1, GL_RED_INTEGER, GL_UNSIGNED_INT, &objectID);
+				glReadPixels(
+					mp.x - data->sceneViewPos.x,
+					data->sceneViewSize.y - (mp.y - data->sceneViewPos.y),
+					1, 1,
+					GL_RED_INTEGER,
+					GL_UNSIGNED_INT,
+					&objectID);
 				glReadBuffer(GL_COLOR_ATTACHMENT0);
+
 				data->selectedEntityID = objectID;
 				data->selectedAsset = nullptr;
+
 				unbindShader();
 				unbindFramebuffer();
 			}
@@ -267,27 +278,29 @@ namespace xe {
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 
 		if (ImGui::Begin("Game")) {
+			Scene* activeScene = getActiveScene(data);
+			
 			// Check if windows size changed
 			ImVec2 size = ImGui::GetContentRegionAvail();
-			if (size != data->gameViewportSize) {
-				data->gameViewportSizeChanged = true;
-				data->gameViewportSize = size;
+			if (size != data->gameViewSize) {
+				data->gameViewSizeChanged = true;
+				data->gameViewSize = size;
 			}
 
-			data->gameViewportPos = ImGui::GetCursorScreenPos();
-			const ImVec2 viewportEnd = data->gameViewportPos + data->gameViewportSize;
+			data->gameViewPos = ImGui::GetCursorScreenPos();
+			const ImVec2 viewportEnd = data->gameViewPos + data->gameViewSize;
 
-			if (getActiveScene(data)->mainCameraEntityID.isValid()) {
+			if (activeScene->mainCameraEntityID.isValid()) {
 				// Draw framebuffer
 				ImGui::Image(
-					(ImTextureID)data->gameFramebuffer->attachments.at(GL_COLOR_ATTACHMENT0).texture->textureID,
-					data->gameViewportSize,
+					(ImTextureID)data->gameFB->attachments.at(GL_COLOR_ATTACHMENT0).texture->textureID,
+					data->gameViewSize,
 					ImVec2(0, 1),
 					ImVec2(1, 0)
 				);
 
 				// Create hole for inputs
-				ImGui::SetWindowHitTestHole(ImGui::GetCurrentWindow(), data->gameViewportPos, data->gameViewportSize);
+				ImGui::SetWindowHitTestHole(ImGui::GetCurrentWindow(), data->gameViewPos, data->gameViewSize);
 			}
 			else {
 				// Missing camera info
@@ -295,6 +308,12 @@ namespace xe {
 				ImVec2 msgSize = ImGui::CalcTextSize(message.c_str());
 				ImGui::SetCursorPos(ImVec2((size.x - msgSize.x) / 2.0f, (size.y - msgSize.y) / 2.0f));
 				ImGui::Text(message.c_str());
+			}
+
+			// Remove entity on delete
+			if (Input::isKeyPressed(GLFW_KEY_DELETE)) {
+				removeEntity(activeScene, data->selectedEntityID);
+				data->selectedEntityID = UUID::None();
 			}
 		}
 		ImGui::End();
@@ -339,7 +358,8 @@ namespace xe {
 			}
 
 			// No Camera PopUp
-			if (ImGui::BeginPopupModal("No main camera", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
+			ImGuiWindowFlags flags = ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize;
+			if (ImGui::BeginPopupModal("No main camera", nullptr, flags)) {
 				ImGui::Text("No camera has been selected as main in the current scene.");
 				if (ImGui::Button("Close")) {
 					ImGui::CloseCurrentPopup();
@@ -353,7 +373,7 @@ namespace xe {
 	void drawEditor(EditorData* data) {
 		float menuHeight = drawMenuBar(data);
 		drawApplication(data, menuHeight);
-		drawHierarchy(getActiveScene(data), data->selectedEntityID);
+		drawHierarchy(data);
 		drawInspector(data);
 		drawAssetViewer(data);
 		drawStatusBar(data);

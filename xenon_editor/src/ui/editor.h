@@ -24,10 +24,10 @@ namespace xe {
 		Shader* gridShader = nullptr;
 		Renderer* renderer = nullptr;
 
-		Framebuffer* editorSourceFramebuffer = nullptr;
-		Framebuffer* editorFramebuffer = nullptr;
-		Framebuffer* gameSourceFramebuffer = nullptr;
-		Framebuffer* gameFramebuffer = nullptr;
+		Framebuffer* editorMultiFB = nullptr;
+		Framebuffer* editorFB = nullptr;
+		Framebuffer* gameMultiFB = nullptr;
+		Framebuffer* gameFB = nullptr;
 
 		Model* gridModel = nullptr;
 
@@ -41,20 +41,20 @@ namespace xe {
 
 
 		// SECTION: Asset viewer (initialized)
-		Directory* assetViewerDirectory = nullptr;
+		Directory* assetDir = nullptr;
 		Asset* selectedAsset = nullptr;
 
 		// SECTION: Scene Viewport (runtime)
-		ImVec2 sceneViewportPos;
-		ImVec2 sceneViewportSize;
-		bool sceneViewportSizeChanged = false;
-		bool sceneViewportHovered = false;
+		ImVec2 sceneViewPos;
+		ImVec2 sceneViewSize;
+		bool sceneViewSizeChanged = false;
+		bool sceneViewHovered = false;
 
 		// SECTION: Scene Viewport (runtime)
-		ImVec2 gameViewportPos;
-		ImVec2 gameViewportSize;
-		bool gameViewportSizeChanged = false;
-		bool gameViewportHovered = false;
+		ImVec2 gameViewPos;
+		ImVec2 gameViewSize;
+		bool gameViewSizeChanged = false;
+		bool gameViewHovered = false;
 		
 		// SECTION: Editing (runtime)
 		UUID selectedEntityID = UUID::None();
@@ -63,7 +63,6 @@ namespace xe {
 
 		// SECTION: Runtime (runtime)
 		PlayModeState playState = PlayModeState::Edit;
-
 	};
 
 	EditorData* createEditor(const std::string& projectFolder);
