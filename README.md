@@ -2,6 +2,8 @@
 Xenon is a game engine library and editor designed to be easy to use and modifiable. It's currently
 being developed as a personal project and is available as is under the MIT License.
 
+![Splash](splash.png)
+
 ## Dependencies
 ### Engine
 * [GLFW](https://github.com/glfw/glfw)
